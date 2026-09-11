@@ -1,25 +1,35 @@
 import re
+import logging
 from typing import List, Dict, Optional, Union
 from urllib.parse import urlparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from .models import StartupLead, FilterQuery
+from .models import StartupLead, FilterQuery, GTMAnalysis
 from .scrapers.yc import YCScraper
 from .scrapers.waas import WAASScraper
 from .enrichers import YCEnricher
+from .gtm_scorer import GTMScorer
+from .browserbase_client import BrowserbaseClient
+
+logger = logging.getLogger(__name__)
 
 
 class StartupScrapePipeline:
-    """Unified pipeline for scraping, deduplicating, and enriching startup leads."""
+    """Unified pipeline for scraping, deduplicating, enriching, and AI GTM scoring."""
 
     def __init__(
         self,
         yc_scraper: Optional[YCScraper] = None,
         waas_scraper: Optional[WAASScraper] = None,
-        yc_enricher: Optional[YCEnricher] = None
+        yc_enricher: Optional[YCEnricher] = None,
+        gtm_scorer: Optional[GTMScorer] = None,
+        browserbase_client: Optional[BrowserbaseClient] = None
     ):
         self.yc = yc_scraper or YCScraper()
         self.waas = waas_scraper or WAASScraper()
         self.enricher = yc_enricher or YCEnricher(session=self.yc.session)
+        self.scorer = gtm_scorer or GTMScorer()
+        self.browserbase = browserbase_client or BrowserbaseClient()
 
     def _normalize_domain(self, website: Optional[str]) -> Optional[str]:
         if not website:
@@ -46,11 +56,44 @@ class StartupScrapePipeline:
         """Enrich a list of leads with company website, LinkedIn, and Twitter."""
         return self.enricher.enrich_leads(leads, max_workers=max_workers)
 
+    def score_lead(self, lead: StartupLead, use_browserbase: bool = False) -> StartupLead:
+        """Score account for GTM readiness, optionally using Browserbase to scrape site/careers."""
+        extra_text = ""
+        if use_browserbase and lead.website:
+            try:
+                res = self.browserbase.scrape_url(lead.website)
+                extra_text = res.get("text", "")[:3000]
+            except Exception as e:
+                logger.warning(f"Browserbase scrape failed for {lead.website}: {e}")
+
+        lead.gtm_analysis = self.scorer.analyze_account(lead, extra_site_text=extra_text)
+        return lead
+
+    def score_leads(
+        self,
+        leads: List[StartupLead],
+        use_browserbase: bool = False,
+        max_workers: int = 4
+    ) -> List[StartupLead]:
+        """Run AI GTM scoring across multiple leads concurrently."""
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_lead = {
+                executor.submit(self.score_lead, lead, use_browserbase): lead
+                for lead in leads
+            }
+            for future in as_completed(future_to_lead):
+                try:
+                    future.result()
+                except Exception as e:
+                    logger.error(f"GTM scoring failed: {e}")
+        return leads
+
     def scrape_from_urls(
         self,
         urls: List[str],
         max_per_source: int = 50,
-        enrich: bool = True
+        enrich: bool = True,
+        score_gtm: bool = False
     ) -> List[StartupLead]:
         """Scrape leads from directory URLs or individual company pages."""
         all_leads: List[StartupLead] = []
@@ -63,7 +106,44 @@ class StartupScrapePipeline:
                 leads = self.waas.scrape_url(url, max_results=max_per_source)
                 all_leads.extend(leads)
 
-        return self.deduplicate_and_merge(all_leads)
+        deduped = self.deduplicate_and_merge(all_leads)
+
+        if score_gtm and deduped:
+            self.score_leads(deduped)
+
+        return deduped
+
+    def pull_early_stage_gtm_leads(
+        self,
+        batches: Optional[List[str]] = None,
+        limit: int = 20,
+        min_score: int = 6,
+        use_browserbase: bool = False
+    ) -> List[StartupLead]:
+        """
+        Pull early-stage startups (Seed / Series A / recent batches) hiring GTM roles,
+        enrich them with company website, LinkedIn, Twitter, and score with AI.
+        """
+        target_batches = batches or [
+            "Winter 2026", "Fall 2025", "Summer 2025", "Winter 2025", "Summer 2024"
+        ]
+
+        query = FilterQuery(
+            batches=target_batches,
+            is_hiring=True,
+            team_size_min=2,
+            team_size_max=60,
+            limit=limit
+        )
+
+        leads = self.yc.scrape(query, max_results=limit, enrich=True)
+        leads = self.deduplicate_and_merge(leads)
+        self.score_leads(leads, use_browserbase=use_browserbase)
+
+        # Filter by minimum score
+        qualified = [l for l in leads if (l.gtm_analysis.score if l.gtm_analysis else 0) >= min_score]
+        qualified.sort(key=lambda l: (l.gtm_analysis.score if l.gtm_analysis else 0), reverse=True)
+        return qualified
 
     def deduplicate_and_merge(self, leads: List[StartupLead]) -> List[StartupLead]:
         """Deduplicate by normalized website domain or company name, merging fields."""

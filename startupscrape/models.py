@@ -21,6 +21,16 @@ class JobPosting(BaseModel):
     url: Optional[str] = None
 
 
+class GTMAnalysis(BaseModel):
+    score: int = Field(default=5, description="GTM scaling readiness score (1-10)")
+    stage: Optional[str] = Field(default="Early", description="Funding stage (Seed / Series A / etc.)")
+    key_signals: List[str] = Field(default_factory=list, description="Key hiring and growth signals")
+    best_contact_role: Optional[str] = Field(default="Founder / CEO", description="Recommended target persona")
+    best_contact_name: Optional[str] = Field(default=None, description="Identified contact name")
+    suggested_angle: Optional[str] = Field(default=None, description="Recommended sales hook / value prop")
+    first_message: Optional[str] = Field(default=None, description="Draft first outreach message")
+
+
 class StartupLead(BaseModel):
     id: str = Field(description="Unique identifier or slug")
     source: str = Field(description="Source directory: yc or workatastartup")
@@ -48,30 +58,33 @@ class StartupLead(BaseModel):
     linkedin_url: Optional[str] = None
     twitter_url: Optional[str] = None
     github_url: Optional[str] = None
+    gtm_analysis: Optional[GTMAnalysis] = None
     raw_data: Optional[Dict[str, Any]] = None
 
     def to_flat_dict(self) -> Dict[str, Any]:
-        """Flatten model for CSV export."""
+        """Flatten model for CSV and table export."""
+        gtm = self.gtm_analysis or GTMAnalysis()
         return {
             "ID": self.id,
             "Source": self.source,
             "Company Name": self.name,
+            "Score": gtm.score,
+            "Stage": gtm.stage or "",
+            "Key Signals": "; ".join(gtm.key_signals),
+            "Best Contact": f"{gtm.best_contact_name} ({gtm.best_contact_role})" if gtm.best_contact_name else (gtm.best_contact_role or ""),
+            "Suggested Angle": gtm.suggested_angle or "",
+            "First Message": gtm.first_message or "",
             "Website": self.website or "",
+            "Company LinkedIn": self.linkedin_url or "",
+            "Company Twitter": self.twitter_url or "",
             "One Liner": self.one_liner or "",
             "Batch": self.batch or "",
             "Industry": self.industry or "",
-            "Subindustry": self.subindustry or "",
-            "Tags": ", ".join(self.tags),
             "Team Size": self.team_size or "",
-            "Locations": "; ".join(self.locations),
             "Is Hiring": "Yes" if self.is_hiring else "No",
             "Open Jobs Count": self.open_jobs_count,
-            "Founders": "; ".join([f"{f.name} ({f.title or 'Founder'})" for f in self.founders]),
             "YC URL": self.yc_url or "",
             "WAAS URL": self.waas_url or "",
-            "LinkedIn": self.linkedin_url or "",
-            "Twitter": self.twitter_url or "",
-            "GitHub": self.github_url or "",
         }
 
 

@@ -24,6 +24,15 @@ WAAS_JOB_INDEX = "Job_production"
 # Algolia API Base URL
 ALGOLIA_API_BASE = "https://45bwzj1sgc-dsn.algolia.net/1/indexes/*/queries"
 
+# Browserbase Configuration
+BROWSERBASE_API_KEY = os.getenv("BROWSERBASE_API_KEY", "")
+BROWSERBASE_PROJECT_ID = os.getenv("BROWSERBASE_PROJECT_ID", "")
+BROWSERBASE_API_BASE = "https://api.browserbase.com/v1"
+
+# Gemini AI Configuration
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
 DEFAULT_TIMEOUT = 15
 MAX_HITS_PER_PAGE = 100
 
