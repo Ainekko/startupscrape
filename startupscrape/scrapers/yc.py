@@ -1,5 +1,6 @@
 import json
 import urllib.parse
+import re
 from typing import List, Dict, Any, Optional
 import requests
 
@@ -14,7 +15,7 @@ from ..models import StartupLead, Founder, FilterQuery
 
 
 class YCScraper:
-    """Scraper client for Y Combinator company directory via official Algolia endpoints."""
+    """Scraper client for Y Combinator company directory and company detail pages."""
 
     def __init__(self, app_id: Optional[str] = None, api_key: Optional[str] = None):
         self.app_id = app_id or YC_ALGOLIA_APP_ID
@@ -66,29 +67,19 @@ class YCScraper:
         """Construct Algolia URL-encoded query parameters."""
         facet_filters = []
 
-        # Batches
         if filters.batches:
             facet_filters.append([f"batch:{b}" for b in filters.batches])
-
-        # Industries
         if filters.industries:
             facet_filters.append([f"industry:{ind}" for ind in filters.industries])
-
-        # Regions
         if filters.regions:
             facet_filters.append([f"regions:{r}" for r in filters.regions])
-
-        # Hiring status
         if filters.is_hiring is True:
             facet_filters.append(["isHiring:true"])
         elif filters.is_hiring is False:
             facet_filters.append(["isHiring:false"])
-
-        # Nonprofit
         if filters.nonprofit is True:
             facet_filters.append(["nonprofit:true"])
 
-        # Construct params dictionary
         query_parts = [
             f"query={urllib.parse.quote(filters.query_text or '')}",
             f"page={page}",
@@ -98,7 +89,6 @@ class YCScraper:
         if facet_filters:
             query_parts.append(f"facetFilters={urllib.parse.quote(json.dumps(facet_filters))}")
 
-        # Numeric filters for team size
         numeric_filters = []
         if filters.team_size_min is not None:
             numeric_filters.append(f"team_size>={filters.team_size_min}")
@@ -110,8 +100,8 @@ class YCScraper:
 
         return "&".join(query_parts)
 
-    def scrape(self, filters: FilterQuery, max_results: int = 50) -> List[StartupLead]:
-        """Query Algolia endpoint and return parsed StartupLead records."""
+    def scrape(self, filters: FilterQuery, max_results: int = 50, enrich: bool = False) -> List[StartupLead]:
+        """Query Algolia endpoint and return parsed StartupLead records, optionally enriching with company page details."""
         endpoint = (
             f"{ALGOLIA_API_BASE}"
             f"?x-algolia-agent=Algolia%20for%20JavaScript%20(4.14.3)"
@@ -155,31 +145,68 @@ class YCScraper:
             if page >= nb_pages:
                 break
 
+        if enrich and leads:
+            from ..enrichers import YCEnricher
+            enricher = YCEnricher(session=self.session)
+            enricher.enrich_leads(leads)
+
         return leads
 
-    def scrape_url(self, url: str, max_results: int = 50) -> List[StartupLead]:
-        """Convenience method to parse URL and scrape in one call."""
+    def is_company_detail_url(self, url: str) -> bool:
+        """Check if URL points directly to a single company page."""
+        parsed = urllib.parse.urlparse(url)
+        path = parsed.path.strip("/")
+        parts = path.split("/")
+        # Matches /companies/<slug>
+        return len(parts) == 2 and parts[0] == "companies" and parts[1] != ""
+
+    def scrape_company_page(self, slug_or_url: str) -> Optional[StartupLead]:
+        """Scrape and enrich a single company page directly (e.g. https://www.ycombinator.com/companies/oklo)."""
+        clean = slug_or_url.strip().split("?")[0].rstrip("/")
+        slug = clean.split("/companies/")[-1].strip("/") if "/companies/" in clean else clean
+        url = f"https://www.ycombinator.com/companies/{slug}"
+
+        from ..enrichers import YCEnricher
+        enricher = YCEnricher(session=self.session)
+        data = enricher.fetch_company_enrichment(url)
+
+        lead = StartupLead(
+            id=slug,
+            source="yc",
+            name=data.get("name") or slug.title(),
+            slug=slug,
+            website=data.get("website"),
+            one_liner=data.get("one_liner"),
+            long_description=data.get("long_description"),
+            batch=data.get("batch"),
+            team_size=data.get("team_size"),
+            locations=[data["location"]] if data.get("location") else [],
+            city=data.get("city"),
+            country=data.get("country"),
+            tags=data.get("tags") or [],
+            yc_url=url,
+            linkedin_url=data.get("linkedin_url"),
+            twitter_url=data.get("twitter_url"),
+        )
+        return lead
+
+    def scrape_url(self, url: str, max_results: int = 50, enrich: bool = True) -> List[StartupLead]:
+        """
+        Scrape leads from either a single company URL or a directory search URL.
+        If a company URL is provided, returns that company enriched.
+        """
+        if self.is_company_detail_url(url):
+            lead = self.scrape_company_page(url)
+            return [lead] if lead else []
+
         filters = self.parse_url(url)
-        return self.scrape(filters, max_results=max_results)
+        return self.scrape(filters, max_results=max_results, enrich=enrich)
 
     def _parse_hit(self, hit: Dict[str, Any]) -> StartupLead:
         """Map raw Algolia hit to StartupLead model."""
         slug = hit.get("slug") or hit.get("objectID", "")
         yc_url = f"https://www.ycombinator.com/companies/{slug}" if slug else None
 
-        # Extract founders
-        founders: List[Founder] = []
-        for f in hit.get("founders", []):
-            if isinstance(f, dict):
-                founders.append(Founder(
-                    name=f.get("name") or f.get("full_name", ""),
-                    title=f.get("title"),
-                    avatar_thumb=f.get("avatar_thumb"),
-                    twitter_url=f.get("twitter_url"),
-                    linkedin_url=f.get("linkedin_url"),
-                ))
-
-        # Extract location info
         locations = []
         if hit.get("all_locations"):
             locations = [loc.strip() for loc in hit.get("all_locations", "").split(";") if loc.strip()]
@@ -205,7 +232,6 @@ class YCScraper:
             city=hit.get("city"),
             is_hiring=bool(hit.get("isHiring")),
             open_jobs_count=hit.get("job_count", 0) or len(hit.get("jobs", [])),
-            founders=founders,
             yc_url=yc_url,
             linkedin_url=hit.get("linkedin_url"),
             twitter_url=hit.get("twitter_url"),
