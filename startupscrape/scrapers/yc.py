@@ -1,0 +1,214 @@
+import json
+import urllib.parse
+from typing import List, Dict, Any, Optional
+import requests
+
+from ..config import (
+    YC_ALGOLIA_APP_ID,
+    YC_ALGOLIA_API_KEY,
+    YC_PRIMARY_INDEX,
+    ALGOLIA_API_BASE,
+    DEFAULT_TIMEOUT
+)
+from ..models import StartupLead, Founder, FilterQuery
+
+
+class YCScraper:
+    """Scraper client for Y Combinator company directory via official Algolia endpoints."""
+
+    def __init__(self, app_id: Optional[str] = None, api_key: Optional[str] = None):
+        self.app_id = app_id or YC_ALGOLIA_APP_ID
+        self.api_key = api_key or YC_ALGOLIA_API_KEY
+        self.session = requests.Session()
+        self.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Referer": "https://www.ycombinator.com/",
+            "Origin": "https://www.ycombinator.com",
+            "Content-Type": "application/json"
+        })
+
+    def parse_url(self, url: str) -> FilterQuery:
+        """Parse YC directory search URL with query parameters into FilterQuery."""
+        parsed = urllib.parse.urlparse(url)
+        params = urllib.parse.parse_qs(parsed.query)
+
+        batches = params.get("batch", [])
+        industries = params.get("industry", [])
+        regions = params.get("regions", [])
+        is_hiring = params.get("isHiring", [None])[0]
+        nonprofit = params.get("nonprofit", [None])[0]
+        query_text = params.get("q", [""])[0]
+
+        team_size_min = None
+        team_size_max = None
+        team_size_raw = params.get("team_size", [None])[0]
+        if team_size_raw:
+            try:
+                ts_list = json.loads(team_size_raw)
+                if len(ts_list) == 2:
+                    team_size_min = int(ts_list[0]) if ts_list[0] else None
+                    team_size_max = int(ts_list[1]) if ts_list[1] else None
+            except Exception:
+                pass
+
+        return FilterQuery(
+            query_text=query_text,
+            batches=batches,
+            industries=industries,
+            regions=regions,
+            is_hiring=True if is_hiring in ("true", "True", "1") else (False if is_hiring in ("false", "False", "0") else None),
+            nonprofit=True if nonprofit in ("true", "True", "1") else None,
+            team_size_min=team_size_min,
+            team_size_max=team_size_max,
+        )
+
+    def _build_algolia_params(self, filters: FilterQuery, page: int = 0, hits_per_page: int = 50) -> str:
+        """Construct Algolia URL-encoded query parameters."""
+        facet_filters = []
+
+        # Batches
+        if filters.batches:
+            facet_filters.append([f"batch:{b}" for b in filters.batches])
+
+        # Industries
+        if filters.industries:
+            facet_filters.append([f"industry:{ind}" for ind in filters.industries])
+
+        # Regions
+        if filters.regions:
+            facet_filters.append([f"regions:{r}" for r in filters.regions])
+
+        # Hiring status
+        if filters.is_hiring is True:
+            facet_filters.append(["isHiring:true"])
+        elif filters.is_hiring is False:
+            facet_filters.append(["isHiring:false"])
+
+        # Nonprofit
+        if filters.nonprofit is True:
+            facet_filters.append(["nonprofit:true"])
+
+        # Construct params dictionary
+        query_parts = [
+            f"query={urllib.parse.quote(filters.query_text or '')}",
+            f"page={page}",
+            f"hitsPerPage={hits_per_page}"
+        ]
+
+        if facet_filters:
+            query_parts.append(f"facetFilters={urllib.parse.quote(json.dumps(facet_filters))}")
+
+        # Numeric filters for team size
+        numeric_filters = []
+        if filters.team_size_min is not None:
+            numeric_filters.append(f"team_size>={filters.team_size_min}")
+        if filters.team_size_max is not None:
+            numeric_filters.append(f"team_size<={filters.team_size_max}")
+
+        if numeric_filters:
+            query_parts.append(f"numericFilters={urllib.parse.quote(json.dumps(numeric_filters))}")
+
+        return "&".join(query_parts)
+
+    def scrape(self, filters: FilterQuery, max_results: int = 50) -> List[StartupLead]:
+        """Query Algolia endpoint and return parsed StartupLead records."""
+        endpoint = (
+            f"{ALGOLIA_API_BASE}"
+            f"?x-algolia-agent=Algolia%20for%20JavaScript%20(4.14.3)"
+            f"&x-algolia-api-key={self.api_key}"
+            f"&x-algolia-application-id={self.app_id}"
+        )
+
+        leads: List[StartupLead] = []
+        page = 0
+        hits_per_page = min(max_results, 50)
+
+        while len(leads) < max_results:
+            params_str = self._build_algolia_params(filters, page=page, hits_per_page=hits_per_page)
+            payload = {
+                "requests": [
+                    {
+                        "indexName": YC_PRIMARY_INDEX,
+                        "params": params_str
+                    }
+                ]
+            }
+
+            resp = self.session.post(endpoint, json=payload, timeout=DEFAULT_TIMEOUT)
+            if resp.status_code != 200:
+                break
+
+            data = resp.json()
+            results = data.get("results", [{}])[0]
+            hits = results.get("hits", [])
+            if not hits:
+                break
+
+            for hit in hits:
+                lead = self._parse_hit(hit)
+                leads.append(lead)
+                if len(leads) >= max_results:
+                    break
+
+            nb_pages = results.get("nbPages", 1)
+            page += 1
+            if page >= nb_pages:
+                break
+
+        return leads
+
+    def scrape_url(self, url: str, max_results: int = 50) -> List[StartupLead]:
+        """Convenience method to parse URL and scrape in one call."""
+        filters = self.parse_url(url)
+        return self.scrape(filters, max_results=max_results)
+
+    def _parse_hit(self, hit: Dict[str, Any]) -> StartupLead:
+        """Map raw Algolia hit to StartupLead model."""
+        slug = hit.get("slug") or hit.get("objectID", "")
+        yc_url = f"https://www.ycombinator.com/companies/{slug}" if slug else None
+
+        # Extract founders
+        founders: List[Founder] = []
+        for f in hit.get("founders", []):
+            if isinstance(f, dict):
+                founders.append(Founder(
+                    name=f.get("name") or f.get("full_name", ""),
+                    title=f.get("title"),
+                    avatar_thumb=f.get("avatar_thumb"),
+                    twitter_url=f.get("twitter_url"),
+                    linkedin_url=f.get("linkedin_url"),
+                ))
+
+        # Extract location info
+        locations = []
+        if hit.get("all_locations"):
+            locations = [loc.strip() for loc in hit.get("all_locations", "").split(";") if loc.strip()]
+        elif hit.get("location"):
+            locations = [hit.get("location")]
+
+        return StartupLead(
+            id=str(hit.get("objectID") or slug),
+            source="yc",
+            name=hit.get("name", "Unknown"),
+            slug=slug,
+            website=hit.get("website"),
+            one_liner=hit.get("one_liner"),
+            long_description=hit.get("long_description"),
+            batch=hit.get("batch_name") or hit.get("batch"),
+            status=hit.get("status", "Active"),
+            industry=hit.get("industry"),
+            subindustry=hit.get("subindustry"),
+            tags=hit.get("tags", []),
+            team_size=hit.get("team_size"),
+            locations=locations,
+            country=hit.get("country"),
+            city=hit.get("city"),
+            is_hiring=bool(hit.get("isHiring")),
+            open_jobs_count=hit.get("job_count", 0) or len(hit.get("jobs", [])),
+            founders=founders,
+            yc_url=yc_url,
+            linkedin_url=hit.get("linkedin_url"),
+            twitter_url=hit.get("twitter_url"),
+            github_url=hit.get("github_url"),
+            raw_data=hit
+        )

@@ -1,0 +1,19 @@
+[project]
+name = "startupscrape"
+version = "0.1.0"
+description = "Lead generation engine for startup directories (Y Combinator & Work at a Startup)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "rich>=13.0.0"
+]
+
+[project.scripts]
+startupscrape = "startupscrape.cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
