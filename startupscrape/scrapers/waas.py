@@ -1,5 +1,6 @@
 import json
 import urllib.parse
+import logging
 from typing import List, Dict, Any, Optional
 import requests
 
@@ -8,9 +9,12 @@ from ..config import (
     WAAS_ALGOLIA_API_KEY,
     WAAS_COMPANY_INDEX,
     ALGOLIA_API_BASE,
-    DEFAULT_TIMEOUT
+    DEFAULT_TIMEOUT,
+    fetch_live_algolia_opts
 )
 from ..models import StartupLead, JobPosting, FilterQuery
+
+logger = logging.getLogger(__name__)
 
 
 class WAASScraper:
@@ -22,10 +26,21 @@ class WAASScraper:
         self.session = requests.Session()
         self.session.headers.update({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Referer": "https://www.workatastartup.com/",
             "Origin": "https://www.workatastartup.com",
             "Content-Type": "application/json"
         })
+
+    def _refresh_key(self) -> bool:
+        """Dynamically refresh WAAS credentials from live page."""
+        opts = fetch_live_algolia_opts("https://www.workatastartup.com/companies", self.session)
+        if opts.get("key") and opts.get("app"):
+            self.app_id = opts["app"]
+            self.api_key = opts["key"]
+            logger.info("Auto-refreshed WAAS Algolia credentials successfully.")
+            return True
+        return False
 
     def parse_url(self, url: str) -> FilterQuery:
         """Parse WAAS URL parameters into FilterQuery."""
@@ -82,19 +97,18 @@ class WAASScraper:
         return "&".join(query_parts)
 
     def scrape(self, filters: FilterQuery, max_results: int = 50) -> List[StartupLead]:
-        """Query WAAS Algolia endpoint and return StartupLead records."""
-        endpoint = (
-            f"{ALGOLIA_API_BASE}"
-            f"?x-algolia-agent=Algolia%20for%20JavaScript%20(4.14.3)"
-            f"&x-algolia-api-key={self.api_key}"
-            f"&x-algolia-application-id={self.app_id}"
-        )
-
+        """Query WAAS Algolia endpoint and return StartupLead records with auto-retry."""
         leads: List[StartupLead] = []
         page = 0
         hits_per_page = min(max_results, 50)
 
         while len(leads) < max_results:
+            endpoint = (
+                f"{ALGOLIA_API_BASE}"
+                f"?x-algolia-agent=Algolia%20for%20JavaScript%20(4.14.3)"
+                f"&x-algolia-api-key={self.api_key}"
+                f"&x-algolia-application-id={self.app_id}"
+            )
             params_str = self._build_algolia_params(filters, page=page, hits_per_page=hits_per_page)
             payload = {
                 "requests": [
@@ -106,6 +120,16 @@ class WAASScraper:
             }
 
             resp = self.session.post(endpoint, json=payload, timeout=DEFAULT_TIMEOUT)
+            if resp.status_code == 403:
+                if self._refresh_key():
+                    endpoint = (
+                        f"{ALGOLIA_API_BASE}"
+                        f"?x-algolia-agent=Algolia%20for%20JavaScript%20(4.14.3)"
+                        f"&x-algolia-api-key={self.api_key}"
+                        f"&x-algolia-application-id={self.app_id}"
+                    )
+                    resp = self.session.post(endpoint, json=payload, timeout=DEFAULT_TIMEOUT)
+
             if resp.status_code != 200:
                 break
 

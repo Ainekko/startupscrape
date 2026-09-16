@@ -5,12 +5,12 @@ from typing import Optional, Dict, Any, List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
-from .models import StartupLead
+from .models import StartupLead, Founder, JobPosting
 from .config import DEFAULT_TIMEOUT
 
 
 class YCEnricher:
-    """Enriches YC startup leads with company website, company LinkedIn, and company Twitter from YC company pages."""
+    """Enriches YC startup leads with company website, company LinkedIn/Twitter, founder intelligence, and jobs from YC company pages."""
 
     def __init__(self, session: Optional[requests.Session] = None):
         self.session = session or requests.Session()
@@ -34,23 +34,27 @@ class YCEnricher:
             return clean.split("/companies/")[-1].strip("/")
         return clean
 
-    def fetch_company_enrichment(self, slug_or_url: str) -> Dict[str, Optional[str]]:
-        """Fetch YC company page and extract website, company LinkedIn, and company Twitter."""
+    def fetch_company_enrichment(self, slug_or_url: str) -> Dict[str, Any]:
+        """Fetch YC company page and extract website, company LinkedIn/Twitter, and founders."""
         url = self.normalize_company_url(slug_or_url)
         try:
             resp = self.session.get(url, timeout=DEFAULT_TIMEOUT)
             if resp.status_code != 200:
-                return {"website": None, "linkedin_url": None, "twitter_url": None}
+                return {"website": None, "linkedin_url": None, "twitter_url": None, "founders": [], "jobs": []}
             return self.parse_html(resp.text)
         except Exception:
-            return {"website": None, "linkedin_url": None, "twitter_url": None}
+            return {"website": None, "linkedin_url": None, "twitter_url": None, "founders": [], "jobs": []}
 
-    def parse_html(self, html_text: str) -> Dict[str, Optional[str]]:
-        """Extract company website, LinkedIn, and Twitter using Inertia data-page with regex fallback."""
-        data: Dict[str, Optional[str]] = {
+    def parse_html(self, html_text: str) -> Dict[str, Any]:
+        """Extract company website, LinkedIn, Twitter, and full founder profiles using Inertia data-page with regex fallback."""
+        data: Dict[str, Any] = {
             "website": None,
             "linkedin_url": None,
             "twitter_url": None,
+            "founders": [],
+            "jobs": [],
+            "tags": [],
+            "long_description": None,
         }
 
         # 1. Primary extraction via Inertia data-page JSON
@@ -64,12 +68,46 @@ class YCEnricher:
                     data["website"] = company.get("website") or None
                     data["linkedin_url"] = company.get("linkedin_url") or None
                     data["twitter_url"] = company.get("twitter_url") or None
+                    data["tags"] = company.get("tags") or []
+                    data["long_description"] = company.get("long_description") or None
+
+                    # Extract rich founder intelligence
+                    founders_list = []
+                    for f in company.get("founders", []):
+                        fname = f.get("full_name") or f.get("name")
+                        if fname:
+                            founder_obj = Founder(
+                                name=fname.strip(),
+                                title=f.get("title") or "Founder",
+                                avatar_thumb=f.get("avatar_thumb_url"),
+                                twitter_url=f.get("twitter_url") or None,
+                                linkedin_url=f.get("linkedin_url") or None,
+                                bio=f.get("founder_bio") or None,
+                                has_email=f.get("has_email"),
+                                projects=f.get("latest_yc_company", {}).get("name") if isinstance(f.get("latest_yc_company"), dict) else None
+                            )
+                            founders_list.append(founder_obj)
+                    data["founders"] = founders_list
+
+                    # Extract jobs listed on company page
+                    jobs_list = []
+                    for j in company.get("jobs", []):
+                        title = j.get("title")
+                        if title:
+                            jobs_list.append(JobPosting(
+                                id=str(j.get("id") or ""),
+                                title=title,
+                                role_type=j.get("role_type"),
+                                location=j.get("location"),
+                                url=j.get("apply_url") or j.get("url")
+                            ))
+                    data["jobs"] = jobs_list
+
                     return data
             except Exception:
                 pass
 
         # 2. Fallback regex extraction from HTML
-        # Company website
         ws_match = re.search(r'<a[^>]+href=["\'](https?://[^"\']+)["\'][^>]*class="[^"]*inline-block[^"]*">', html_text)
         if ws_match:
             data["website"] = ws_match.group(1)
@@ -84,12 +122,10 @@ class YCEnricher:
                     data["website"] = link
                     break
 
-        # Company LinkedIn (/company/)
         li_match = re.search(r'href=["\'](https?://(?:www\.)?linkedin\.com/company/[^"\'\s]+)["\']', html_text)
         if li_match:
             data["linkedin_url"] = li_match.group(1).rstrip("/")
 
-        # Company Twitter / X (excluding YC's account)
         tw_matches = re.findall(r'href=["\'](https?://(?:www\.)?(?:twitter\.com|x\.com)/[A-Za-z0-9_]+)["\']', html_text)
         for tw in tw_matches:
             if "ycombinator" not in tw.lower():
@@ -99,7 +135,7 @@ class YCEnricher:
         return data
 
     def enrich_lead(self, lead: StartupLead) -> StartupLead:
-        """Enrich a single StartupLead with company website, LinkedIn, and Twitter."""
+        """Enrich a single StartupLead with company website, LinkedIn, Twitter, founders, and jobs."""
         target = lead.yc_url or lead.slug or (lead.id if lead.source == "yc" else None)
         if not target:
             return lead
@@ -111,6 +147,21 @@ class YCEnricher:
             lead.linkedin_url = extracted["linkedin_url"]
         if extracted.get("twitter_url"):
             lead.twitter_url = extracted["twitter_url"]
+        if extracted.get("tags") and not lead.tags:
+            lead.tags = extracted["tags"]
+        if extracted.get("long_description") and not lead.long_description:
+            lead.long_description = extracted["long_description"]
+
+        # Attach founders
+        if extracted.get("founders"):
+            lead.founders = extracted["founders"]
+
+        # Attach jobs
+        if extracted.get("jobs"):
+            if not lead.jobs:
+                lead.jobs = extracted["jobs"]
+                lead.open_jobs_count = len(lead.jobs)
+                lead.is_hiring = True
 
         return lead
 

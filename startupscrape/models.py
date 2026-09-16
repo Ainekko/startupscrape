@@ -8,6 +8,9 @@ class Founder(BaseModel):
     avatar_thumb: Optional[str] = None
     twitter_url: Optional[str] = None
     linkedin_url: Optional[str] = None
+    bio: Optional[str] = None
+    has_email: Optional[bool] = None
+    projects: Optional[str] = None
 
 
 class JobPosting(BaseModel):
@@ -22,12 +25,13 @@ class JobPosting(BaseModel):
 
 
 class GTMAnalysis(BaseModel):
-    score: int = Field(default=5, description="GTM scaling readiness score (1-10)")
+    score: int = Field(default=5, description="FlowJoy GTM fit readiness score (1-10)")
     stage: Optional[str] = Field(default="Early", description="Funding stage (Seed / Series A / etc.)")
     key_signals: List[str] = Field(default_factory=list, description="Key hiring and growth signals")
     best_contact_role: Optional[str] = Field(default="Founder / CEO", description="Recommended target persona")
     best_contact_name: Optional[str] = Field(default=None, description="Identified contact name")
-    suggested_angle: Optional[str] = Field(default=None, description="Recommended sales hook / value prop")
+    best_contact_linkedin: Optional[str] = Field(default=None, description="Contact's personal LinkedIn URL")
+    suggested_angle: Optional[str] = Field(default=None, description="Recommended sales hook / value prop for FlowJoy")
     first_message: Optional[str] = Field(default=None, description="Draft first outreach message")
 
 
@@ -62,8 +66,17 @@ class StartupLead(BaseModel):
     raw_data: Optional[Dict[str, Any]] = None
 
     def to_flat_dict(self) -> Dict[str, Any]:
-        """Flatten model for CSV and table export."""
+        """Flatten model for CSV and table export with complete founder intelligence."""
         gtm = self.gtm_analysis or GTMAnalysis()
+        
+        primary_founder = self.founders[0] if self.founders else None
+        founder_name = gtm.best_contact_name or (primary_founder.name if primary_founder else "")
+        founder_role = gtm.best_contact_role or (primary_founder.title if primary_founder else "")
+        founder_linkedin = gtm.best_contact_linkedin or (primary_founder.linkedin_url if primary_founder else "")
+        founder_twitter = primary_founder.twitter_url if primary_founder else ""
+        founder_bio = primary_founder.bio if primary_founder else ""
+        founder_has_email = "Yes" if (primary_founder and primary_founder.has_email) else "No"
+
         return {
             "ID": self.id,
             "Source": self.source,
@@ -71,8 +84,13 @@ class StartupLead(BaseModel):
             "Score": gtm.score,
             "Stage": gtm.stage or "",
             "Key Signals": "; ".join(gtm.key_signals),
-            "Best Contact": f"{gtm.best_contact_name} ({gtm.best_contact_role})" if gtm.best_contact_name else (gtm.best_contact_role or ""),
-            "Suggested Angle": gtm.suggested_angle or "",
+            "Founder Name": founder_name,
+            "Founder Title": founder_role,
+            "Founder LinkedIn": founder_linkedin or "",
+            "Founder Twitter": founder_twitter or "",
+            "Founder Has Email": founder_has_email,
+            "Founder Bio": founder_bio or "",
+            "Suggested Angle (FlowJoy)": gtm.suggested_angle or "",
             "First Message": gtm.first_message or "",
             "Website": self.website or "",
             "Company LinkedIn": self.linkedin_url or "",

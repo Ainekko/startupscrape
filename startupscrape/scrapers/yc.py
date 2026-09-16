@@ -1,6 +1,6 @@
 import json
 import urllib.parse
-import re
+import logging
 from typing import List, Dict, Any, Optional
 import requests
 
@@ -9,9 +9,12 @@ from ..config import (
     YC_ALGOLIA_API_KEY,
     YC_PRIMARY_INDEX,
     ALGOLIA_API_BASE,
-    DEFAULT_TIMEOUT
+    DEFAULT_TIMEOUT,
+    fetch_live_algolia_opts
 )
 from ..models import StartupLead, Founder, FilterQuery
+
+logger = logging.getLogger(__name__)
 
 
 class YCScraper:
@@ -27,6 +30,16 @@ class YCScraper:
             "Origin": "https://www.ycombinator.com",
             "Content-Type": "application/json"
         })
+
+    def _refresh_key(self) -> bool:
+        """Dynamically refresh Algolia credentials from live YC companies page."""
+        opts = fetch_live_algolia_opts("https://www.ycombinator.com/companies", self.session)
+        if opts.get("key") and opts.get("app"):
+            self.app_id = opts["app"]
+            self.api_key = opts["key"]
+            logger.info("Auto-refreshed YC Algolia credentials successfully.")
+            return True
+        return False
 
     def parse_url(self, url: str) -> FilterQuery:
         """Parse YC directory search URL with query parameters into FilterQuery."""
@@ -101,19 +114,18 @@ class YCScraper:
         return "&".join(query_parts)
 
     def scrape(self, filters: FilterQuery, max_results: int = 50, enrich: bool = False) -> List[StartupLead]:
-        """Query Algolia endpoint and return parsed StartupLead records, optionally enriching with company page details."""
-        endpoint = (
-            f"{ALGOLIA_API_BASE}"
-            f"?x-algolia-agent=Algolia%20for%20JavaScript%20(4.14.3)"
-            f"&x-algolia-api-key={self.api_key}"
-            f"&x-algolia-application-id={self.app_id}"
-        )
-
+        """Query Algolia endpoint and return parsed StartupLead records with auto-refresh on 403."""
         leads: List[StartupLead] = []
         page = 0
         hits_per_page = min(max_results, 50)
 
         while len(leads) < max_results:
+            endpoint = (
+                f"{ALGOLIA_API_BASE}"
+                f"?x-algolia-agent=Algolia%20for%20JavaScript%20(4.14.3)"
+                f"&x-algolia-api-key={self.api_key}"
+                f"&x-algolia-application-id={self.app_id}"
+            )
             params_str = self._build_algolia_params(filters, page=page, hits_per_page=hits_per_page)
             payload = {
                 "requests": [
@@ -125,6 +137,17 @@ class YCScraper:
             }
 
             resp = self.session.post(endpoint, json=payload, timeout=DEFAULT_TIMEOUT)
+            if resp.status_code == 403:
+                # Key expired, attempt auto-refresh
+                if self._refresh_key():
+                    endpoint = (
+                        f"{ALGOLIA_API_BASE}"
+                        f"?x-algolia-agent=Algolia%20for%20JavaScript%20(4.14.3)"
+                        f"&x-algolia-api-key={self.api_key}"
+                        f"&x-algolia-application-id={self.app_id}"
+                    )
+                    resp = self.session.post(endpoint, json=payload, timeout=DEFAULT_TIMEOUT)
+
             if resp.status_code != 200:
                 break
 
@@ -157,11 +180,10 @@ class YCScraper:
         parsed = urllib.parse.urlparse(url)
         path = parsed.path.strip("/")
         parts = path.split("/")
-        # Matches /companies/<slug>
         return len(parts) == 2 and parts[0] == "companies" and parts[1] != ""
 
     def scrape_company_page(self, slug_or_url: str) -> Optional[StartupLead]:
-        """Scrape and enrich a single company page directly (e.g. https://www.ycombinator.com/companies/oklo)."""
+        """Scrape and enrich a single company page directly."""
         clean = slug_or_url.strip().split("?")[0].rstrip("/")
         slug = clean.split("/companies/")[-1].strip("/") if "/companies/" in clean else clean
         url = f"https://www.ycombinator.com/companies/{slug}"
@@ -184,6 +206,8 @@ class YCScraper:
             city=data.get("city"),
             country=data.get("country"),
             tags=data.get("tags") or [],
+            founders=data.get("founders") or [],
+            jobs=data.get("jobs") or [],
             yc_url=url,
             linkedin_url=data.get("linkedin_url"),
             twitter_url=data.get("twitter_url"),
@@ -191,10 +215,7 @@ class YCScraper:
         return lead
 
     def scrape_url(self, url: str, max_results: int = 50, enrich: bool = True) -> List[StartupLead]:
-        """
-        Scrape leads from either a single company URL or a directory search URL.
-        If a company URL is provided, returns that company enriched.
-        """
+        """Scrape leads from either a single company URL or a directory search URL."""
         if self.is_company_detail_url(url):
             lead = self.scrape_company_page(url)
             return [lead] if lead else []
