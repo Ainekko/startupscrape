@@ -38,6 +38,15 @@ BROWSERBASE_API_BASE = "https://api.browserbase.com/v1"
 # Gemini AI Configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+# treg — tool catalog (https://treg.to)
+TREG_TOKEN = os.getenv("TREG_TOKEN", "")
+TREG_BASE_URL = "https://treg.to"
+TREG_PER_CALL_CAP_USD = float(os.getenv("TREG_PER_CALL_CAP_USD", "0.05"))
+TREG_MAX_RUN_COST_USD = float(os.getenv("TREG_MAX_RUN_COST_USD", "1.50"))
+
+# jev — Vercel AI Gateway evaluation model (https://vercel.com/ai-gateway)
+AI_GATEWAY_API_KEY = os.getenv("AI_GATEWAY_API_KEY", "")
+
 
 DEFAULT_TIMEOUT = 15
 MAX_HITS_PER_PAGE = 100
