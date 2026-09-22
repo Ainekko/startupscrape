@@ -2,11 +2,11 @@
 runner.py — FlowJoy signal-first lead pipeline orchestrator.
 
 Pipeline:
-  Tier 0 — Free scrape + pre-filter (stage, team size, B2B signals)
+  Tier 0 — Free scrape with 2023-2027 B2B active hiring cohorts
   Enrich — YC HTTP metadata enrichment (founders, company LinkedIn, personal LinkedIn)
-  Tier 1 — jev fast score (B2B, funding stage, no GTM hire)
+  Tier 1 — jev fast score (B2B, funding stage, no GTM hire, competitor check, vertical R&D)
   Tier 2 — treg email find (threaded, batch=10)
-  Tier 3 — jev final fit score (0-20) + rank
+  Tier 3 — jev final fit score (0-24) + rank
 
 Outputs: data/run_<ts>.json (or data/run_<ts>_partial.json on interrupt)
 """
@@ -41,9 +41,12 @@ DATA_DIR = ROOT / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 # ── scoring weights ───────────────────────────────────────────────────────────
-SCORE_FUNDING = 10       # Seed or Series A
+SCORE_FUNDING = 10       # Seed or Series A (2023–2027 batches)
 SCORE_NO_GTM = 5         # No GTM engineer / Head of Sales in headcount
 SCORE_B2B = 5            # B2B SaaS / Product
+
+BONUS_VERTICAL_PRODUCT = 3    # High-R&D vertical product (devtools, tax, firmware, logistics)
+PENALTY_COMPETITOR = 12       # Direct GTM automation / AI agency / sales tooling overlap
 
 BONUS_TEAM_SIZE = 1           # 5–50 headcount
 BONUS_TECH_FOUNDER = 1        # ex-FAANG / technical background
@@ -73,7 +76,16 @@ _TECH_SIGNALS = [
     "openai", "deepmind", "phd", "stanford", "mit", "berkeley", "cmu", "engineer", "cto"
 ]
 
-RECENT_BATCHES = ["W25", "S24", "W24", "F24", "S23", "W23", "S22", "W22"]
+# Cohorts from 2023 to present (Seed & Series A window)
+TARGET_BATCHES = [
+    "Summer 2027", "Winter 2027",
+    "Fall 2026", "Summer 2026", "Spring 2026", "Winter 2026",
+    "Fall 2025", "Summer 2025", "Winter 2025",
+    "Fall 2024", "Summer 2024", "Winter 2024",
+    "Summer 2023", "Winter 2023",
+]
+
+VALID_YEARS = ["2023", "2024", "2025", "2026", "2027"]
 
 
 def run(
@@ -97,8 +109,8 @@ def run(
 
     try:
         # ── Tier 0: Scrape ────────────────────────────────────────────────────
-        logger.info("Tier 0: scraping startup directories (%s)…", sources)
-        raw = _scrape(sources, limit=max(max_leads * 5, 40))
+        logger.info("Tier 0: scraping active 2023-2027 B2B cohorts (%s)…", sources)
+        raw = _scrape(sources, limit=max(max_leads * 4, 30))
         funnel["raw"] = len(raw)
         logger.info("Tier 0: %d raw leads collected", funnel["raw"])
 
@@ -164,8 +176,8 @@ def run(
 
 def _scrape(sources: list[str], limit: int = 50) -> list[StartupLead]:
     results: list[StartupLead] = []
-    # Seed/Series A query targeting recent batches
-    fq = FilterQuery(batches=RECENT_BATCHES, limit=limit)
+    # Explicitly query 2023–2027 batches, B2B industry, is_hiring=True
+    fq = FilterQuery(batches=TARGET_BATCHES, industries=["B2B"], is_hiring=True, limit=limit)
 
     def _yc():
         try:
@@ -176,7 +188,7 @@ def _scrape(sources: list[str], limit: int = 50) -> list[StartupLead]:
 
     def _waas():
         try:
-            return WAAScraper().scrape(fq, max_results=limit)
+            return WAASScraper().scrape(fq, max_results=limit)
         except Exception as e:
             logger.warning("WAAS scrape failed: %s", e)
             return []
@@ -190,12 +202,6 @@ def _scrape(sources: list[str], limit: int = 50) -> list[StartupLead]:
     with ThreadPoolExecutor(max_workers=max(1, len(tasks))) as pool:
         for fut in as_completed([pool.submit(t) for t in tasks]):
             results.extend(fut.result())
-
-    # Fallback to broader scrape if recent batch query returned too few
-    if len(results) < 15:
-        logger.info("Expanding scrape query to general batches...")
-        broader_fq = FilterQuery(limit=limit)
-        results.extend(YCScraper().scrape(broader_fq, max_results=limit, enrich=False))
 
     # Deduplicate by slug / name
     seen: set[str] = set()
@@ -211,8 +217,15 @@ def _scrape(sources: list[str], limit: int = 50) -> list[StartupLead]:
 def _prefilter(leads: list[StartupLead]) -> list[StartupLead]:
     kept = []
     for lead in leads:
-        # Exclude massive mature companies
-        if lead.team_size and lead.team_size > 150:
+        # STRICT BATCH CHECK: Must belong to 2023-2027 batches
+        if not lead.batch:
+            continue
+        b = lead.batch.strip().lower()
+        if not any(yr in b for yr in VALID_YEARS):
+            continue
+
+        # STRICT HEADCOUNT: Only Seed/early Series A (max 50 people)
+        if lead.team_size and lead.team_size > 50:
             continue
 
         # Exclude pure consumer if tagged
@@ -231,7 +244,7 @@ def _tier1_score(leads: list[StartupLead]) -> list[dict]:
         has_gtm = any(kw in t for t in job_titles for kw in _GTM_TITLES)
         has_eng_job = any(kw in t for t in job_titles for kw in ["engineer", "developer", "backend", "ml", "ai"])
         tags_lower = [t.lower() for t in lead.tags]
-        is_b2b_tag = any(t in tags_lower for t in _B2B_TAGS)
+        is_b2b_tag = (lead.industry and "b2b" in lead.industry.lower()) or any(t in tags_lower for t in _B2B_TAGS)
 
         founder = lead.founders[0] if lead.founders else None
         founder_bios = " ".join((f.bio or "") + " " + (f.title or "") for f in lead.founders).lower()
@@ -243,6 +256,7 @@ def _tier1_score(leads: list[StartupLead]) -> list[dict]:
             "batch": lead.batch or "",
             "team_size": lead.team_size,
             "tags": lead.tags,
+            "industry": lead.industry,
             "job_titles": job_titles,
             "has_gtm_job_posting": has_gtm,
             "has_engineering_hiring": has_eng_job,
@@ -254,22 +268,30 @@ def _tier1_score(leads: list[StartupLead]) -> list[dict]:
         questions = {
             "is_b2b": {
                 "type": "boolean",
-                "instructions": "Is this a B2B company (sells products or services to other businesses, developers, or enterprises)?",
+                "instructions": "Is this a B2B company (sells products or services to businesses, enterprises, or developers)?",
             },
             "has_gtm_hire": {
                 "type": "boolean",
-                "instructions": "Does this company currently have a GTM engineer, Head of Sales, RevOps, or Growth Lead?",
+                "instructions": "Does this company currently have a GTM engineer, Head of Sales, VP Sales, RevOps, or Growth Lead?",
             },
             "funding_stage": {
                 "type": "choice",
                 "instructions": "What is the most likely funding stage of this company?",
                 "criteria": {
-                    "seed": "Seed round, pre-product-market-fit",
-                    "series_a": "Series A, early revenue scaling",
+                    "seed": "Seed round (2023-2027 batches, pre-PMF / early scale)",
+                    "series_a": "Series A (scaling revenue)",
                     "series_b_plus": "Series B or later scaling",
                     "pre_seed": "Pre-seed or bootstrapped",
                     "unknown": "Cannot determine",
                 },
+            },
+            "is_competitor_or_overlap": {
+                "type": "boolean",
+                "instructions": "Is this company an agency, AI SDR, sales automation tool, or GTM automation service that directly overlaps with FlowJoy?",
+            },
+            "is_vertical_product": {
+                "type": "boolean",
+                "instructions": "Does this company build a proprietary vertical product (devtools, APIs, firmware, tax, logistics, security, robotics)?",
             },
         }
 
@@ -278,15 +300,20 @@ def _tier1_score(leads: list[StartupLead]) -> list[dict]:
         score = 0
         judge_used = eval_result.get("is_b2b", {}).get("judge", "heuristic")
 
+        # Competitor & Vertical status
+        is_competitor = eval_result.get("is_competitor_or_overlap", {}).get("answer", False)
+        is_vertical = eval_result.get("is_vertical_product", {}).get("answer", False)
+
         # B2B: 5 pts
         b2b_prob = eval_result.get("is_b2b", {}).get("probabilities", {}).get("true", 0.5)
         if b2b_prob >= 0.6 or is_b2b_tag:
             score += SCORE_B2B
 
-        # Funding stage (Seed / Series A): 10 pts
+        # Funding stage (Seed / Series A): 10 pts (Strict 2023-2027 validation)
         stage_probs = eval_result.get("funding_stage", {}).get("probabilities", {})
         seed_prob = stage_probs.get("seed", 0) + stage_probs.get("series_a", 0)
-        if seed_prob >= 0.5 or (lead.batch and any(b in lead.batch for b in RECENT_BATCHES)):
+        is_target_batch = bool(lead.batch and any(yr in lead.batch for yr in VALID_YEARS))
+        if is_target_batch and seed_prob >= 0.5:
             score += SCORE_FUNDING
 
         # No GTM hire: 5 pts
@@ -294,8 +321,16 @@ def _tier1_score(leads: list[StartupLead]) -> list[dict]:
         if gtm_prob < 0.4 and not has_gtm:
             score += SCORE_NO_GTM
 
+        # Vertical product bonus vs Competitor penalty
+        if is_competitor:
+            score = max(0, score - PENALTY_COMPETITOR)
+            signals.insert(0, "⚠️ Competitor / Agency Overlap (-12)")
+        elif is_vertical:
+            score += BONUS_VERTICAL_PRODUCT
+            signals.insert(0, "🎯 Core Vertical R&D (+3)")
+
         # Bonuses
-        if lead.team_size and 5 <= lead.team_size <= 50:
+        if lead.team_size and 2 <= lead.team_size <= 50:
             score += BONUS_TEAM_SIZE
         if is_tech_founder:
             score += BONUS_TECH_FOUNDER
@@ -317,6 +352,8 @@ def _tier1_score(leads: list[StartupLead]) -> list[dict]:
             "founder_name": (founder.name if founder else ""),
             "founder_title": (founder.title if founder else "Founder"),
             "founder_linkedin": (founder.linkedin_url if founder else ""),
+            "is_competitor": is_competitor,
+            "is_vertical_product": is_vertical,
             "founders": [
                 {
                     "name": f.name,
@@ -332,6 +369,8 @@ def _tier1_score(leads: list[StartupLead]) -> list[dict]:
                 "is_b2b": eval_result.get("is_b2b", {}).get("probabilities", {}),
                 "has_gtm_hire": eval_result.get("has_gtm_hire", {}).get("probabilities", {}),
                 "funding_stage": eval_result.get("funding_stage", {}).get("probabilities", {}),
+                "is_competitor": eval_result.get("is_competitor_or_overlap", {}).get("probabilities", {}),
+                "is_vertical": eval_result.get("is_vertical_product", {}).get("probabilities", {}),
             },
             "jev_judge": judge_used,
             "email_result": None,
@@ -351,13 +390,19 @@ def _tier1_score(leads: list[StartupLead]) -> list[dict]:
 def _tier3_score(leads: list[dict]) -> list[dict]:
     def _score_one(lead: dict) -> dict:
         email_found = bool(lead.get("email_result", {}) and lead["email_result"].get("email"))
+        is_competitor = lead.get("is_competitor", False)
+        is_vertical = lead.get("is_vertical_product", False)
+
         state = {
             "company": lead["company_name"],
             "one_liner": lead.get("one_liner", ""),
             "team_size": lead.get("team_size"),
+            "batch": lead.get("batch", ""),
             "signals": lead.get("signals", []),
             "tier1_score": lead.get("tier1_score", 0),
             "email_found": email_found,
+            "is_competitor": is_competitor,
+            "is_vertical_product": is_vertical,
             "founder_name": lead.get("founder_name", ""),
             "founder_title": lead.get("founder_title", ""),
             "product": "FlowJoy — GTM Engineering Studio building revenue systems for B2B Seed/Series A startups",
@@ -367,11 +412,11 @@ def _tier3_score(leads: list[dict]) -> list[dict]:
                 "type": "score",
                 "instructions": "Score this lead's fit as a FlowJoy prospect from 0 to 20.",
                 "criteria": [
-                    {"level": 0, "description": "Consumer, pre-revenue, or clearly not a match"},
-                    {"level": 5, "description": "B2B but large/mature, already has full GTM team"},
+                    {"level": 0, "description": "Competitor/agency, consumer, or clearly not a match"},
+                    {"level": 5, "description": "B2B but large/mature or overlapping sales service"},
                     {"level": 10, "description": "B2B, Seed/SeriesA, may have some sales capacity"},
                     {"level": 15, "description": "B2B, Seed/SeriesA, no GTM hire, technical founder"},
-                    {"level": 20, "description": "All signals: seed/A, B2B, no GTM, eng-heavy, email found"},
+                    {"level": 20, "description": "Ideal vertical product: seed/A, B2B, no GTM, eng-heavy, email found"},
                 ],
             },
         }
@@ -379,10 +424,14 @@ def _tier3_score(leads: list[dict]) -> list[dict]:
         eval_res = judge(state, questions)
         fit_ans = eval_res.get("fit", {}).get("answer", lead.get("tier1_score", 0))
 
-        # Add bonus for verified email
         final_score = float(fit_ans)
-        if email_found:
+        if email_found and not is_competitor:
             final_score = min(24.0, final_score + BONUS_EMAIL_VERIFIED)
+
+        if is_competitor:
+            final_score = min(8.0, max(0.0, final_score - 10.0))
+        elif is_vertical:
+            final_score = min(24.0, final_score + BONUS_VERTICAL_PRODUCT)
 
         lead["final_score"] = round(final_score, 1)
         lead["jev_final_probs"] = eval_res.get("fit", {}).get("probabilities", {})

@@ -398,6 +398,8 @@
               {% set stage_probs = probs.get('funding_stage', {}) %}
               {% set top_stage = stage_probs | dictsort(by='value') | reverse | first %}
               {% if top_stage %}<span class="chip chip-purple">{{ top_stage[0].replace('_',' ') }}</span>{% endif %}
+              {% if lead.is_competitor %}<span class="chip" style="background:rgba(239,68,68,0.18);color:#fca5a5;border:1px solid rgba(239,68,68,0.4);">⚠️ Overlap / Competitor</span>{% endif %}
+              {% if lead.is_vertical_product %}<span class="chip" style="background:rgba(168,85,247,0.18);color:#d8b4fe;border:1px solid rgba(168,85,247,0.4);">🎯 Vertical R&D</span>{% endif %}
               {% if lead.jev_judge == 'agent' %}<span class="chip chip-muted">judge: agent</span>{% endif %}
             </div>
           </div>
