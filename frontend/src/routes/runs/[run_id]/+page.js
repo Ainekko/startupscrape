@@ -1,2 +1,2 @@
-<!-- +page.js — load run data server-side (or client-side on Vercel static) -->
+// +page.js — disable SSR for client-side API fetching
 export const ssr = false;

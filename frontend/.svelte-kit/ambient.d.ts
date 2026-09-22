@@ -27,7 +27,6 @@
  */
 declare module '$env/static/private' {
 	export const VITE_API_URL: string;
-	export const LESSOPEN: string;
 	export const npm_package_devDependencies__sveltejs_adapter_vercel: string;
 	export const USER: string;
 	export const npm_config_user_agent: string;
@@ -38,11 +37,14 @@ declare module '$env/static/private' {
 	export const OLDPWD: string;
 	export const NVM_BIN: string;
 	export const NVM_INC: string;
-	export const npm_package_devDependencies_svelte_preprocess: string;
 	export const npm_package_devDependencies_svelte_check: string;
 	export const npm_package_scripts_check: string;
+	export const npm_config_userconfig: string;
+	export const npm_config_local_prefix: string;
 	export const WSL_DISTRO_NAME: string;
+	export const COLOR: string;
 	export const npm_package_devDependencies_tailwindcss: string;
+	export const npm_package_devDependencies_typescript: string;
 	export const NVM_DIR: string;
 	export const npm_package_scripts_dev: string;
 	export const npm_package_devDependencies_prettier: string;
@@ -53,8 +55,11 @@ declare module '$env/static/private' {
 	export const _: string;
 	export const npm_package_private: string;
 	export const npm_package_devDependencies_autoprefixer: string;
+	export const npm_config_prefix: string;
+	export const npm_config_npm_version: string;
 	export const npm_config_registry: string;
 	export const TERM: string;
+	export const npm_config_cache: string;
 	export const npm_config_ignore_scripts: string;
 	export const npm_config_node_gyp: string;
 	export const PATH: string;
@@ -62,7 +67,6 @@ declare module '$env/static/private' {
 	export const npm_config_frozen_lockfile: string;
 	export const npm_package_dependencies__vercel_analytics: string;
 	export const LANG: string;
-	export const LS_COLORS: string;
 	export const npm_lifecycle_script: string;
 	export const npm_package_devDependencies__sveltejs_kit: string;
 	export const SHELL: string;
@@ -70,12 +74,14 @@ declare module '$env/static/private' {
 	export const NODE_PATH: string;
 	export const npm_package_scripts_build: string;
 	export const npm_package_devDependencies_svelte: string;
-	export const LESSCLOSE: string;
 	export const npm_package_scripts_format: string;
+	export const npm_config_globalconfig: string;
+	export const npm_config_init_module: string;
 	export const PWD: string;
 	export const npm_execpath: string;
 	export const NVM_CD_FLAGS: string;
 	export const XDG_DATA_DIRS: string;
+	export const npm_config_global_prefix: string;
 	export const npm_package_devDependencies_postcss: string;
 	export const npm_command: string;
 	export const PNPM_SCRIPT_SRC_DIR: string;
@@ -84,6 +90,7 @@ declare module '$env/static/private' {
 	export const HOSTTYPE: string;
 	export const WSLENV: string;
 	export const INIT_CWD: string;
+	export const EDITOR: string;
 	export const NODE_ENV: string;
 }
 
@@ -115,7 +122,6 @@ declare module '$env/static/public' {
 declare module '$env/dynamic/private' {
 	export const env: {
 		VITE_API_URL: string;
-		LESSOPEN: string;
 		npm_package_devDependencies__sveltejs_adapter_vercel: string;
 		USER: string;
 		npm_config_user_agent: string;
@@ -126,11 +132,14 @@ declare module '$env/dynamic/private' {
 		OLDPWD: string;
 		NVM_BIN: string;
 		NVM_INC: string;
-		npm_package_devDependencies_svelte_preprocess: string;
 		npm_package_devDependencies_svelte_check: string;
 		npm_package_scripts_check: string;
+		npm_config_userconfig: string;
+		npm_config_local_prefix: string;
 		WSL_DISTRO_NAME: string;
+		COLOR: string;
 		npm_package_devDependencies_tailwindcss: string;
+		npm_package_devDependencies_typescript: string;
 		NVM_DIR: string;
 		npm_package_scripts_dev: string;
 		npm_package_devDependencies_prettier: string;
@@ -141,8 +150,11 @@ declare module '$env/dynamic/private' {
 		_: string;
 		npm_package_private: string;
 		npm_package_devDependencies_autoprefixer: string;
+		npm_config_prefix: string;
+		npm_config_npm_version: string;
 		npm_config_registry: string;
 		TERM: string;
+		npm_config_cache: string;
 		npm_config_ignore_scripts: string;
 		npm_config_node_gyp: string;
 		PATH: string;
@@ -150,7 +162,6 @@ declare module '$env/dynamic/private' {
 		npm_config_frozen_lockfile: string;
 		npm_package_dependencies__vercel_analytics: string;
 		LANG: string;
-		LS_COLORS: string;
 		npm_lifecycle_script: string;
 		npm_package_devDependencies__sveltejs_kit: string;
 		SHELL: string;
@@ -158,12 +169,14 @@ declare module '$env/dynamic/private' {
 		NODE_PATH: string;
 		npm_package_scripts_build: string;
 		npm_package_devDependencies_svelte: string;
-		LESSCLOSE: string;
 		npm_package_scripts_format: string;
+		npm_config_globalconfig: string;
+		npm_config_init_module: string;
 		PWD: string;
 		npm_execpath: string;
 		NVM_CD_FLAGS: string;
 		XDG_DATA_DIRS: string;
+		npm_config_global_prefix: string;
 		npm_package_devDependencies_postcss: string;
 		npm_command: string;
 		PNPM_SCRIPT_SRC_DIR: string;
@@ -172,6 +185,7 @@ declare module '$env/dynamic/private' {
 		HOSTTYPE: string;
 		WSLENV: string;
 		INIT_CWD: string;
+		EDITOR: string;
 		NODE_ENV: string;
 		[key: `PUBLIC_${string}`]: undefined;
 		[key: `${string}`]: string | undefined;
