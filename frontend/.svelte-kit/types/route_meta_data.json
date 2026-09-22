@@ -1,8 +1,0 @@
-{
-	"/": [],
-	"/leads": [],
-	"/runs/new": [],
-	"/runs/[run_id]": [
-		"src/routes/runs/[run_id]/+page.js"
-	]
-}
