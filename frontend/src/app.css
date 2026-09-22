@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-surface-0 text-text-primary antialiased;
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background: rgba(110, 231, 183, 0.2);
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.1);
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.18);
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface-2 border border-border rounded-xl shadow-card;
+  }
+
+  .card-hover {
+    @apply hover:bg-surface-3 hover:shadow-card-hover transition-all duration-200;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-accent text-surface-0 text-sm font-medium rounded-lg
+           hover:bg-accent-dim active:scale-95 transition-all duration-150 cursor-pointer;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-4 py-2 text-text-secondary text-sm font-medium rounded-lg
+           hover:bg-surface-3 hover:text-text-primary active:scale-95 transition-all duration-150 cursor-pointer;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium;
+  }
+
+  .badge-green {
+    @apply badge bg-accent/10 text-accent;
+  }
+
+  .badge-yellow {
+    @apply badge bg-yellow-400/10 text-yellow-400;
+  }
+
+  .badge-red {
+    @apply badge bg-red-400/10 text-red-400;
+  }
+
+  .badge-gray {
+    @apply badge bg-surface-4 text-text-muted;
+  }
+
+  .table-row-base {
+    @apply border-b border-border transition-colors duration-100;
+  }
+
+  .table-row-base:hover {
+    @apply bg-surface-3;
+  }
+
+  .mono {
+    @apply font-mono text-sm;
+  }
+
+  .label {
+    @apply text-xs font-medium tracking-wider uppercase text-text-muted;
+  }
+}
+
+/* Detail expand animation */
+.detail-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease-out, opacity 0.2s ease-out;
+  opacity: 0;
+}
+.detail-panel.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.detail-panel > div {
+  overflow: hidden;
+}
