@@ -37,6 +37,7 @@ declare module '$env/static/private' {
 	export const OLDPWD: string;
 	export const NVM_BIN: string;
 	export const NVM_INC: string;
+	export const npm_package_engines_node: string;
 	export const npm_package_devDependencies_svelte_check: string;
 	export const npm_package_scripts_check: string;
 	export const npm_config_userconfig: string;
@@ -80,7 +81,6 @@ declare module '$env/static/private' {
 	export const PWD: string;
 	export const npm_execpath: string;
 	export const NVM_CD_FLAGS: string;
-	export const XDG_DATA_DIRS: string;
 	export const npm_config_global_prefix: string;
 	export const npm_package_devDependencies_postcss: string;
 	export const npm_command: string;
@@ -132,6 +132,7 @@ declare module '$env/dynamic/private' {
 		OLDPWD: string;
 		NVM_BIN: string;
 		NVM_INC: string;
+		npm_package_engines_node: string;
 		npm_package_devDependencies_svelte_check: string;
 		npm_package_scripts_check: string;
 		npm_config_userconfig: string;
@@ -175,7 +176,6 @@ declare module '$env/dynamic/private' {
 		PWD: string;
 		npm_execpath: string;
 		NVM_CD_FLAGS: string;
-		XDG_DATA_DIRS: string;
 		npm_config_global_prefix: string;
 		npm_package_devDependencies_postcss: string;
 		npm_command: string;
