@@ -42,6 +42,13 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Running in file-only mode (DATABASE_URL not configured).")
 
+    # Expose the application's running event loop for background thread tasks
+    try:
+        import asyncio
+        app.state.loop = asyncio.get_running_loop()
+    except RuntimeError:
+        app.state.loop = None
+
     yield
 
     logger.info("Shutting down StartupScrape API server...")

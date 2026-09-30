@@ -37,12 +37,75 @@ _run_lock = threading.Lock()
 _active_run: dict[str, Any] | None = None
 
 
+def _clear_active_run() -> None:
+    """Clear the module-level active run state under the run lock."""
+    global _active_run
+    with _run_lock:
+        _active_run = None
+
+
 class PipelineService:
     @staticmethod
     def get_active_status() -> dict[str, Any]:
-        """Return the current running status or idle."""
-        with _run_lock:
-            return _active_run or {"status": "idle"}
+            """Return the current running status in the shape expected by the frontend.
+
+            Frontend expects `status` to be one of: 'idle' | 'running' | 'done' | 'error'.
+            Keep a short retention window after completion so the UI can show a "done" state
+            before transitioning back to 'idle' to stop polling.
+            """
+            with _run_lock:
+                if not _active_run:
+                    return {"status": "idle"}
+
+                status = _active_run.get("status")
+
+                # Running -> map directly
+                if status == "running":
+                    return {"status": "running"}
+
+                # Completed -> present as 'done' for a short retention window, then clear
+                if status == "complete":
+                    finished = _active_run.get("finished_at")
+                    run_id = _active_run.get("run_id")
+                    try:
+                        from datetime import datetime, timezone, timedelta
+                        if finished:
+                            fdt = datetime.fromisoformat(finished)
+                        else:
+                            fdt = datetime.now(timezone.utc)
+                    except Exception:
+                        fdt = datetime.now(timezone.utc)
+
+                    # retention window (seconds)
+                    retention = 10
+                    if (datetime.now(timezone.utc) - fdt).total_seconds() < retention:
+                        return {"status": "done", "run_id": run_id}
+                    else:
+                        # Clear the active run after retention
+                        _clear_active_run()
+                        return {"status": "idle"}
+
+                # Error -> surface the error message, then clear after retention
+                if status == "error":
+                    err = _active_run.get("error")
+                    finished = _active_run.get("failed_at") or _active_run.get("finished_at")
+                    try:
+                        from datetime import datetime, timezone, timedelta
+                        if finished:
+                            fdt = datetime.fromisoformat(finished)
+                        else:
+                            fdt = datetime.now(timezone.utc)
+                    except Exception:
+                        fdt = datetime.now(timezone.utc)
+
+                    retention = 10
+                    if (datetime.now(timezone.utc) - fdt).total_seconds() < retention:
+                        return {"status": "error", "error": err}
+                    else:
+                        _clear_active_run()
+                        return {"status": "idle"}
+
+                return {"status": "idle"}
 
     @staticmethod
     def is_running() -> bool:
@@ -171,9 +234,26 @@ class PipelineService:
 
             # Persist to database asynchronously via event loop
             try:
-                loop = asyncio.new_event_loop()
-                loop.run_until_complete(cls._save_run_to_db(result))
-                loop.close()
+                # Try to schedule DB persistence on the application's main event loop
+                app_loop = None
+                try:
+                    from app.main import app as _app
+                    app_loop = getattr(_app.state, "loop", None)
+                except Exception:
+                    app_loop = None
+
+                if app_loop and app_loop.is_running():
+                    # Run the coroutine safely on the main loop from this background thread
+                    future = asyncio.run_coroutine_threadsafe(cls._save_run_to_db(result), app_loop)
+                    # Wait for completion, but avoid hanging forever
+                    future.result(timeout=60)
+                else:
+                    # Fallback: create a temporary event loop local to this thread
+                    loop = asyncio.new_event_loop()
+                    try:
+                        loop.run_until_complete(cls._save_run_to_db(result))
+                    finally:
+                        loop.close()
             except Exception as db_err:
                 logger.error("Failed to sync run '%s' to database: %s", run_id, db_err)
 
