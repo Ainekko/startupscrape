@@ -1,172 +1,228 @@
-# StartupScrape — FlowJoy Signal-First Lead Finder
+# StartupScrape
 
-> **A high-speed, signal-driven lead finder that combines direct Algolia directory search, lightweight founder intelligence, jev/heuristic ICP scoring, and treg email enrichment for B2B Go-To-Market teams.**
+StartupScrape is a startup sourcing and lead-enrichment pipeline for GTM teams, agencies, and outbound operators who want a fast way to find high-fit early-stage companies and the people behind them.
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![ICP: Seed--Series A B2B](https://img.shields.io/badge/ICP-Seed%20to%20Series%20A%20B2B-purple.svg)]()
-[![Enrichment: treg.to](https://img.shields.io/badge/Enrichment-treg.to-emerald.svg)]()
-[![Scoring: jev](https://img.shields.io/badge/Scoring-typesafe--ai%2Fjev-orange.svg)]()
+This repo is built to answer a simple question: which startups are worth reaching out to right now, and why?
 
----
-
-## 📖 Executive Summary
-
-Finding and qualifying early-stage B2B startups for high-ticket GTM services (e.g. GTM engineering studios, RevOps architecture, automated outbound) requires fresh signals and direct founder reachability without burning money on slow headless browsers.
-
-**StartupScrape solves this with a 4-Tier Waterfall**:
-1. **Tier 0 (Algolia Backend Query)**: Queries Y Combinator and Work at a Startup directory backends directly in <500ms with zero bot detection or browser overhead.
-2. **Enrichment (Lightweight HTTP Extraction)**: Extracts company website, company LinkedIn URL, open job titles, and founder profiles (names, titles, bios, personal LinkedIn URLs) in a single fast HTTP GET request.
-3. **Tier 1 & 3 (jev / Calibrated Heuristic Scoring)**: Evaluates accounts against a 24-point fit rubric (Seed/Series A stage, no GTM engineer in headcount, B2B SaaS focus, tech founder pedigree) via **jev** on Vercel AI Gateway with a local heuristic fallback.
-4. **Tier 2 (treg Verified Email Discovery)**: Cascades across 89 providers via **treg** (`treg.people.email.find`) to find verified founder emails (~$0.005 per verified hit; misses are free).
-5. **Browse Dashboard**: Dark-mode web interface (`localhost:5001`) with real-time status polling, funnel analytics, and interactive contact inspector.
+It combines:
+- direct startup-directory discovery from Y Combinator and Work at a Startup
+- lightweight enrichment of company and founder metadata
+- heuristic or AI-assisted scoring for GTM fit
+- optional founder email lookup via treg
+- exportable lead artifacts for outreach, case studies, and dashboard review
 
 ---
 
-## 🏗️ System Architecture
+## What this project is for
 
-```
-┌────────────────────────────────────────────────────────┐
-│                   Target Directories                   │
-│   Y Combinator Directory    Work at a Startup (WAAS)   │
-└───────────────────┬───────────────────┬────────────────┘
-                    │                   │
-                    ▼                   ▼
-┌────────────────────────────────────────────────────────┐
-│       Tier 0: Direct Algolia Backend Search API        │
-│   • Sub-second response times, zero bot blocks         │
-│   • Auto-refreshing keys (self-healing on 403)         │
-│   • Structured filters: recent batches, tags, size     │
-└───────────────────────────┬────────────────────────────┘
-                            │
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│         Inertia HTML Enrichment (Lightweight HTTP)     │
-│   • Company website & company LinkedIn profile         │
-│   • Open job postings & engineering role scan          │
-│   • Complete founder profiles & personal LinkedIn URLs │
-└───────────────────────────┬────────────────────────────┘
-                            │
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│        Tier 1: Fast ICP Scoring (jev / Heuristics)     │
-│   • Seed / Series A funding stage verification         │
-│   • Detects absence of GTM engineer / Head of Sales    │
-│   • Verifies B2B model; filters out consumer           │
-└───────────────────────────┬────────────────────────────┘
-                            │
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│        Tier 2: treg Email Find (`treg.people.email`)   │
-│   • Threaded cascading email search across providers   │
-│   • ~$0.005 per verified hit, misses cost $0           │
-│   • Per-call ($0.05) and run-level budget enforcement  │
-│   • Checkpoints saved every 10 leads                   │
-└───────────────────────────┬────────────────────────────┘
-                            │
-                            ▼
-┌────────────────────────────────────────────────────────┐
-│         Tier 3: Final Scoring & Ranking (0–24 pts)     │
-│   • Re-scores with contact reachability state          │
-│   • Saves run results to `data/run_<ts>.json`          │
-│   • Browse live at http://localhost:5001               │
-└────────────────────────────────────────────────────────┘
-```
+This project is not a generic web scraper. It is a focused prospecting engine for early-stage B2B startups with a GTM problem.
+
+Typical use cases:
+- find Seed and Series A startups that are hiring but still under-optimized in GTM
+- identify technical founders and signals that indicate a need for a GTM engineering or RevOps engagement
+- generate a ranked list of outreach targets with company, founder, and message context
+- turn those results into case-study-style narratives or sales narratives for a studio or agency
+
+The core idea is to convert startup-directory data into a structured, scored opportunity list.
 
 ---
 
-## 🎯 Scoring Rubric (0–24 Pts)
+## The high-level workflow
 
-Evaluated via **`pipeline/scorer.py`** using **jev** (or calibrated local heuristics):
+1. Source startup records from directory backends
+   - Y Combinator companies
+   - Work at a Startup
+   - filtered by stage, hiring, team size, and industry relevance
 
-| Signal | Points | Detection / Source |
-|---|---|---|
-| **Seed or Series A Stage** | **10** | YC/WAAS cohorts from 2023–2027 (`Winter 2023` to `Summer 2027`) |
-| **No GTM Engineer / Head of Sales** | **5** | Absence of sales leadership in headcount & job postings |
-| **B2B SaaS / DevTools** | **5** | Algolia tags, industry, and description |
-| **Verified Founder Email** | **+2** | `treg.people.email.find` |
-| **Optimal Team Size (5–50)** | **+1** | Algolia directory metadata |
-| **Technical Founder** | **+1** | Founder bios (ex-FAANG, PhD, CTO) |
-| **Eng Hiring without Sales Hiring** | **+1** | Open role titles |
+2. Enrich the records
+   - company website
+   - LinkedIn URL
+   - founder names, titles, bios, and LinkedIn profiles
+   - hiring and job-posting signals
+
+3. Score for fit
+   - early-stage startup signal
+   - B2B SaaS relevance
+   - absence of GTM headcount
+   - technical founder signals
+   - founder email reachability and relevance
+
+4. Contact-enrich and export
+   - verified founder emails where available
+   - CSV and JSON exports for downstream tools
+   - dashboard summaries for manual review
+
+5. Build the narrative
+   - explain why the startup is attractive
+   - summarize team context and problem to solve
+   - produce a case-study or outreach report from the scored data
 
 ---
 
-## ⚡ Quickstart
+## What a “case study” means in this repo
 
-### 1. Environment Setup
+A case study here is usually a short, evidence-backed prospect brief built from one or more scored startup records.
 
-Configure `.env` in the project root:
+Typical case-study structure:
+- company overview and stage
+- why this startup is a fit for GTM or outbound work
+- hiring and team-signal evidence
+- founder background and likely decision-maker
+- suggested angle or problem statement
+- exportable lead data for follow-up
 
-```env
-# treg — tool catalog token (https://treg.to)
-TREG_TOKEN=eyJ1aW...
-TREG_PER_CALL_CAP_USD=0.05
-TREG_MAX_RUN_COST_USD=1.50
+This is the practical output of the pipeline: not just raw data, but a usable narrative from real startup metadata.
 
-# Optional: Vercel AI Gateway key for live jev scoring (falls back to calibrated heuristics if absent)
-AI_GATEWAY_API_KEY=vck_...
+---
+
+## Repository layout
+
+```text
+.
+├── README.md                  # Project overview and agent handoff guide
+├── demo.py                    # Basic startup-directory demo
+├── run_prospects.py           # Browser-based prospecting run example
+├── run_flowjoy_test.py        # Example FlowJoy-style targeted lead generation
+├── pyproject.toml             # Python project config
+├── data/                      # Generated JSON/CSV artifacts from runs
+├── docs/                      # Architecture, scoring, sourcing, and strategy docs
+├── startupscrape/             # Main package for scraping, scoring, and models
+│   ├── cli.py                 # Command-line entry point
+│   ├── config.py             # Config and environment settings
+│   ├── exporters.py          # CSV/JSON export logic
+│   ├── models.py             # Core Pydantic models
+│   ├── pipeline.py           # Run orchestration and pipeline logic
+│   ├── tracker.py            # Lead/outcome tracking
+│   ├── enrichers.py         # Founder/company enrichment logic
+│   ├── signals.py           # Signal extraction and heuristic rules
+│   ├── scrapers/            # YC / Work at a Startup scraper clients
+│   └── ...
+├── pipeline/                  # Pipeline runner, scorer, and enrichment modules
+├── web/                      # Flask dashboard and templates
+├── backend/                  # Backend app for serving and storing run results
+├── tests/                    # Automated tests for pipeline behavior
+└── docs/                     # Additional project design docs
 ```
 
-### 2. Run from the Web Dashboard
+---
 
-Start the Flask browse dashboard:
+## Core parts of the system
 
+### Source discovery
+The repo queries startup directories directly instead of depending on slow browser automation where possible. This keeps runs faster and more reliable.
+
+Relevant code:
+- `startupscrape/scrapers/`
+- `startupscrape/pipeline.py`
+- `demo.py`
+
+### Enrichment and scoring
+Once a company is found, the system extracts founder and company signals, then scores the account for GTM fit based on stage, hiring, founder quality, and business relevance.
+
+Relevant code:
+- `pipeline/scorer.py`
+- `startupscrape/signals.py`
+- `startupscrape/enrichers.py`
+
+### Contact discovery
+If the repo is configured with a treg token, it can try to find founder emails and related contact reachability signals.
+
+Relevant code:
+- `pipeline/enricher.py`
+- `startupscrape/tracker.py`
+
+### Output
+Saved run artifacts land in `data/` and are suitable for downstream analysis, outreach, or case-study generation.
+
+Relevant code:
+- `startupscrape/exporters.py`
+- `web/app.py`
+
+---
+
+## Quick-start commands
+
+### Basic demo
 ```bash
-python3 web/app.py
+python demo.py
 ```
-Open **http://localhost:5001** and click **Run Pipeline**.
+This runs a lightweight example that pulls a few startups and exports them.
 
-### 3. Run from CLI
-
-Execute a targeted run directly:
-
+### FlowJoy-style targeted run
 ```bash
-python3 -c "from pipeline.runner import run; r = run(max_leads=10); print(r['funnel'])"
+python run_flowjoy_test.py
 ```
+This is closer to a “case-study generation” workflow: it pulls highly relevant early-stage B2B leads, scores them, and prints founder and signal context.
+
+### CLI pipeline run
+```bash
+python -m startupscrape.cli --early-stage --limit 10 --gtm
+```
+This is the direct command-line entry point for a scored lead list.
+
+### Dashboard
+```bash
+python web/app.py
+```
+Then open:
+- http://localhost:5001
 
 ---
 
-## 📦 Project Structure
+## Typical output artifacts
 
-```
-startupscrape/
-├── pipeline/
-│   ├── runner.py               # 4-tier pipeline orchestrator
-│   ├── scorer.py               # jev scoring wrapper & heuristic fallback
-│   └── enricher.py             # treg email discovery cascade
-├── web/
-│   ├── app.py                  # Flask browse dashboard (port 5001)
-│   └── templates/
-│       └── index.html          # Dark-mode dashboard UI with funnel & inspector
-├── startupscrape/
-│   ├── scrapers/
-│   │   ├── yc.py               # Y Combinator Algolia client with auto-refresh
-│   │   └── waas.py             # Work at a Startup Algolia client
-│   ├── enrichers.py            # YC HTML Inertia parser for founder intelligence
-│   ├── signals.py              # Heuristic signal detector & title analyzer
-│   ├── models.py               # Pydantic models (StartupLead, Founder, JobPosting)
-│   └── config.py               # Central configuration & credentials
-├── docs/                       # System Documentation & Wikis
-│   ├── ARCHITECTURE.md         # System design, Algolia integration & data flow
-│   ├── FLOWJOY_WIKI.md         # FlowJoy positioning, ICP & outreach angles
-│   ├── SIGNAL_PLAYBOOK.md      # Signal taxonomy, trigger keywords & score matrix
-│   ├── SCORING.md              # jev question specification & rubric
-│   └── TREG.md                 # treg endpoints, pricing model & error codes
-├── data/                       # Run output JSON files (e.g. run_<ts>.json)
-└── pyproject.toml              # Package dependencies
-```
+Runs write data into the `data/` directory as JSON and CSV files. These are the raw material for:
+- outreach lists
+- ranked prospect tables
+- founder data review
+- case study summaries and narrative generation
+
+Look for files like:
+- `data/flowjoy_targeted_leads_*.csv`
+- `data/flowjoy_targeted_leads_*.json`
+- `data/prospects_*.json`
+- `data/run_*.json`
 
 ---
 
-## 📚 Knowledge Base & Wikis
+## What makes this useful for agents
 
-- **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**: System design, Algolia backend mechanics, and pipeline lifecycle.
-- **[`docs/FLOWJOY_WIKI.md`](docs/FLOWJOY_WIKI.md)**: FlowJoy GTM Engineering Studio positioning, ICP matrix, and outreach angles.
-- **[`docs/SIGNAL_PLAYBOOK.md`](docs/SIGNAL_PLAYBOOK.md)**: Growth & hiring signals, detection logic, and value propositions.
-- **[`docs/SCORING.md`](docs/SCORING.md)**: Complete jev question shapes and rubric evaluation rules.
-- **[`docs/TREG.md`](docs/TREG.md)**: treg tool catalog integration and cost model.
+An agent can use this repo to do the following:
+- identify promising startup targets from public directory data
+- rank them by GTM fit with a consistent scoring model
+- inspect founder and team metadata to support a narrative
+- generate a case study or outreach brief from a list of scored leads
+- export clean results for later analysis or human follow-up
+
+The repo is most useful when treated as a pipeline for “target discovery + signal extraction + ranking + narrative generation,” not just scraping.
 
 ---
 
-## 📄 License
-MIT License. Built for modern B2B GTM teams and outbound engineering studios.
+## Good starting questions to ask this repo
+
+- Which startups are early-stage, B2B, and hiring right now?
+- Which founders look like the right decision-maker for a GTM service engagement?
+- Which companies have the strongest evidence of a GTM bottleneck?
+- Which leads should be exported into a case study or outreach brief?
+
+These are the questions the pipeline was designed to support.
+
+---
+
+## Project references
+
+Further context is in the docs folder:
+- `docs/ARCHITECTURE.md`
+- `docs/PLAN.md`
+- `docs/SCORING.md`
+- `docs/SIGNAL_PLAYBOOK.md`
+- `docs/FLOWJOY_WIKI.md`
+- `docs/TREG.md`
+
+These documents explain scoring logic, sourcing strategy, and the business use cases behind the project.
+
+---
+
+## Bottom line
+
+StartupScrape turns startup directories into a structured, scored, and exportable market map of early-stage SaaS companies. It is designed to help an agent or operator quickly understand which startups are worth pursuing and why, and to turn those findings into actionable case studies or outreach flows.
