@@ -1,43 +1,30 @@
-<!-- RunCard.svelte — Pipeline run card matching illustration's warm cream style -->
-<script>
-  export let run;
+<!-- RunCard.svelte — Pipeline run card, uses actual backend data shape -->
+<script lang="ts">
+  import { funnelMetrics, totalSpend } from '$lib/types';
 
-  function fmtDate(iso) {
-    if (!iso) return '—';
-    return new Date(iso).toLocaleString('en-US', {
-      month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    });
-  }
+  export let run: any;
 
-  function fmtRunId(id) {
+  function fmtRunId(id: string) {
     const m = id.match(/run_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})/);
     if (!m) return id;
     return `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`;
   }
 
-  $: scraped   = run.funnel?.scraped || 0;
-  $: enriched  = run.funnel?.enriched || 0;
-  $: qualified = run.funnel?.qualified || run.lead_count || 0;
-  $: spend     = run.spend?.total_usd || 0;
-  $: convRate  = scraped ? ((qualified / scraped) * 100).toFixed(0) : '0';
+  $: metrics = funnelMetrics(run.funnel || {});
+  $: spend = totalSpend(run.spend || {});
+  $: convRate = metrics.scraped > 0 ? ((metrics.qualified / metrics.scraped) * 100).toFixed(0) : '—';
 
   $: statusColor =
     run.status === 'complete' ? 'bg-emerald-500' :
     run.status === 'error'    ? 'bg-red-500' :
                                 'bg-amber-500 animate-pulse';
-
-  $: statusBadge =
-    run.status === 'complete' ? 'badge-green' :
-    run.status === 'error'    ? 'badge-red' :
-                                'badge-yellow';
 </script>
 
 <a
   href="/runs/{run.run_id}"
   class="card card-hover flex items-center justify-between p-5 group no-underline block"
 >
-  <div class="flex items-center gap-5 min-w-0">
+  <div class="flex items-center gap-4 min-w-0">
     <!-- Status dot -->
     <div class="w-2.5 h-2.5 rounded-full flex-shrink-0 {statusColor}"></div>
 
@@ -46,35 +33,40 @@
       <p class="font-mono text-sm text-text-primary font-semibold group-hover:text-[#c2410c] transition-colors">
         {fmtRunId(run.run_id)}
       </p>
-      <p class="text-xs text-text-muted mt-0.5 font-mono">{run.run_id}</p>
+      <p class="text-[10px] text-text-muted mt-0.5 font-mono">{run.run_id}</p>
     </div>
   </div>
 
-  <!-- Funnel numbers -->
-  <div class="hidden sm:flex items-center gap-6 text-center">
+  <!-- Funnel numbers — actual backend field names -->
+  <div class="hidden sm:flex items-center gap-5 text-center">
     <div>
-      <p class="text-sm font-semibold text-text-primary">{scraped}</p>
+      <p class="text-sm font-semibold text-text-primary">{metrics.scraped}</p>
       <p class="text-[10px] text-text-muted uppercase tracking-wide">scraped</p>
     </div>
-    <div class="w-px h-6 bg-surface-4"></div>
+    <span class="text-text-faint text-xs">→</span>
     <div>
-      <p class="text-sm font-semibold text-text-primary">{enriched}</p>
-      <p class="text-[10px] text-text-muted uppercase tracking-wide">enriched</p>
+      <p class="text-sm font-semibold text-text-primary">{metrics.scored}</p>
+      <p class="text-[10px] text-text-muted uppercase tracking-wide">scored</p>
     </div>
-    <div class="w-px h-6 bg-surface-4"></div>
+    <span class="text-text-faint text-xs">→</span>
     <div>
-      <p class="text-sm font-semibold text-emerald-700">{qualified}</p>
+      <p class="text-sm font-semibold text-text-primary">{metrics.withEmail}</p>
+      <p class="text-[10px] text-text-muted uppercase tracking-wide">emails</p>
+    </div>
+    <span class="text-text-faint text-xs">→</span>
+    <div>
+      <p class="text-sm font-semibold text-emerald-700">{metrics.qualified}</p>
       <p class="text-[10px] text-text-muted uppercase tracking-wide">qualified</p>
     </div>
     <div class="w-px h-6 bg-surface-4"></div>
     <div>
-      <p class="text-sm font-semibold text-text-primary">{convRate}%</p>
-      <p class="text-[10px] text-text-muted uppercase tracking-wide">conv.</p>
+      <p class="text-sm font-semibold text-text-secondary">{convRate}{convRate !== '—' ? '%' : ''}</p>
+      <p class="text-[10px] text-text-muted uppercase tracking-wide">yield</p>
     </div>
     <div class="w-px h-6 bg-surface-4"></div>
     <div>
       <p class="text-sm font-mono font-semibold text-text-secondary">${spend.toFixed(3)}</p>
-      <p class="text-[10px] text-text-muted uppercase tracking-wide">spend</p>
+      <p class="text-[10px] text-text-muted uppercase tracking-wide">treg cost</p>
     </div>
   </div>
 

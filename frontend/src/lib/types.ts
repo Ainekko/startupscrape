@@ -1,7 +1,8 @@
 /**
  * types.ts — Frontend Type Definitions
  * ======================================
- * Aligned with backend Pydantic schemas (backend/app/models.py).
+ * Aligned with backend Pydantic schemas (backend/app/models.py)
+ * and actual pipeline output data shapes.
  */
 
 // ── Enums ────────────────────────────────────────────────────────────────────
@@ -51,19 +52,28 @@ export interface UserResponse {
 
 // ── Pipeline Runs ────────────────────────────────────────────────────────────
 
+/** Funnel data shape — matches backend pipeline output */
+export interface RunFunnel {
+  raw?: number;
+  prefiltered?: number;
+  tier1_kept?: number;
+  email_found?: number;
+  final_leads?: number;
+}
+
+/** Spend data shape — matches backend pipeline output */
+export interface RunSpend {
+  treg_usd?: number;
+  jev_judge?: string;
+}
+
 export interface RunSummary {
   run_id: string;
   started_at: string;
   finished_at: string | null;
   status: string; // 'running' | 'complete' | 'error'
-  funnel: {
-    scraped?: number;
-    enriched?: number;
-    qualified?: number;
-  };
-  spend: {
-    total_usd?: number;
-  };
+  funnel: RunFunnel;
+  spend: RunSpend;
   lead_count: number;
 }
 
@@ -90,6 +100,7 @@ export interface Founder {
 export interface EmailResult {
   email?: string;
   verified?: boolean;
+  status?: string;
   cost_usd?: number;
 }
 
@@ -101,8 +112,8 @@ export interface Lead {
   one_liner?: string;
   batch?: string;
   industry?: string;
-  team_size?: string;
-  tags?: string;
+  team_size?: number | string;
+  tags?: string[] | string;
   yc_url?: string;
   waas_url?: string;
   linkedin_url?: string;
@@ -128,7 +139,7 @@ export interface Lead {
   jev_judge?: string;
 
   // Outreach tracking
-  outreach_status: OutreachStatus;
+  outreach_status?: OutreachStatus;
   notes?: string;
 
   created_at?: string;
@@ -184,4 +195,22 @@ export interface PaginatedLeads {
   total: number;
   limit: number;
   offset: number;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Extract display-friendly funnel metrics from backend shape */
+export function funnelMetrics(funnel: RunFunnel) {
+  return {
+    scraped: funnel.raw ?? 0,
+    prefiltered: funnel.prefiltered ?? 0,
+    scored: funnel.tier1_kept ?? 0,
+    withEmail: funnel.email_found ?? 0,
+    qualified: funnel.final_leads ?? 0,
+  };
+}
+
+/** Extract total spend from backend spend shape */
+export function totalSpend(spend: RunSpend): number {
+  return spend.treg_usd ?? 0;
 }

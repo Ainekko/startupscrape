@@ -1,8 +1,9 @@
-<!-- /runs/[run_id]/+page.svelte — Run detail with lead table, warm palette -->
+<!-- /runs/[run_id]/+page.svelte — Run detail with lead table -->
 <script lang="ts">
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import { api } from '$lib/api';
+  import { funnelMetrics, totalSpend } from '$lib/types';
   import type { Run, Lead } from '$lib/types';
   import LeadRow from '$lib/components/LeadRow.svelte';
 
@@ -35,6 +36,8 @@
   }
 
   $: leads = run?.leads ?? [];
+  $: metrics = run ? funnelMetrics(run.funnel || {}) : null;
+  $: spend = run ? totalSpend(run.spend || {}) : 0;
 
   $: filtered = leads
     .filter((l: Lead) => !filterCompetitor || !l.is_competitor)
@@ -83,10 +86,10 @@
 {:else if run}
   <div class="animate-fade-in">
     <!-- Breadcrumb -->
-    <div class="flex items-center gap-3 mb-1">
-      <a href="/" class="text-text-muted hover:text-[#c2410c] transition-colors text-sm">Runs</a>
-      <span class="text-text-faint text-sm">/</span>
-      <span class="text-text-secondary text-sm font-mono">{fmtRunId(run.run_id)}</span>
+    <div class="flex items-center gap-2 mb-1 text-sm">
+      <a href="/" class="text-text-muted hover:text-[#c2410c] transition-colors">Runs</a>
+      <span class="text-text-faint">/</span>
+      <span class="text-text-secondary font-mono">{fmtRunId(run.run_id)}</span>
     </div>
 
     <div class="flex items-start justify-between mb-6">
@@ -94,30 +97,40 @@
         <h1 class="text-xl font-bold text-text-primary">{fmtRunId(run.run_id)}</h1>
         <p class="text-xs text-text-muted font-mono mt-0.5">{run.run_id}</p>
       </div>
-      <span class="badge {run.status === 'complete' ? 'badge-green' : 'badge-yellow'} mt-1">
+      <span class="badge {run.status === 'complete' ? 'badge-green' : run.status === 'error' ? 'badge-red' : 'badge-yellow'} mt-1">
         {run.status ?? 'complete'}
       </span>
     </div>
 
-    <!-- Stats strip -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-      <div class="card px-4 py-3">
-        <p class="label mb-1">Scraped</p>
-        <p class="text-xl font-bold text-text-primary">{run.funnel?.scraped ?? '—'}</p>
+    <!-- Stats strip — actual backend funnel data -->
+    {#if metrics}
+      <div class="grid grid-cols-2 sm:grid-cols-6 gap-3 mb-6">
+        <div class="card px-4 py-3">
+          <p class="label mb-1">Scraped</p>
+          <p class="text-xl font-bold text-text-primary">{metrics.scraped}</p>
+        </div>
+        <div class="card px-4 py-3">
+          <p class="label mb-1">Prefiltered</p>
+          <p class="text-xl font-bold text-text-primary">{metrics.prefiltered}</p>
+        </div>
+        <div class="card px-4 py-3">
+          <p class="label mb-1">Scored</p>
+          <p class="text-xl font-bold text-text-primary">{metrics.scored}</p>
+        </div>
+        <div class="card px-4 py-3">
+          <p class="label mb-1">Emails Found</p>
+          <p class="text-xl font-bold text-text-primary">{metrics.withEmail}</p>
+        </div>
+        <div class="card px-4 py-3">
+          <p class="label mb-1">Qualified</p>
+          <p class="text-xl font-bold text-emerald-700">{metrics.qualified}</p>
+        </div>
+        <div class="card px-4 py-3">
+          <p class="label mb-1">Treg Spend</p>
+          <p class="text-xl font-bold text-text-primary font-mono">${spend.toFixed(3)}</p>
+        </div>
       </div>
-      <div class="card px-4 py-3">
-        <p class="label mb-1">Enriched</p>
-        <p class="text-xl font-bold text-text-primary">{run.funnel?.enriched ?? '—'}</p>
-      </div>
-      <div class="card px-4 py-3">
-        <p class="label mb-1">Qualified</p>
-        <p class="text-xl font-bold text-emerald-700">{run.funnel?.qualified ?? leads.length}</p>
-      </div>
-      <div class="card px-4 py-3">
-        <p class="label mb-1">Spend</p>
-        <p class="text-xl font-bold text-text-primary font-mono">${(run.spend?.total_usd ?? 0).toFixed(3)}</p>
-      </div>
-    </div>
+    {/if}
 
     <!-- Controls -->
     <div class="flex items-center gap-3 mb-4">
@@ -133,7 +146,7 @@
         <input type="checkbox" bind:checked={filterCompetitor} class="rounded accent-[#c2410c] w-3.5 h-3.5" />
         Hide competitors
       </label>
-      <span class="text-xs text-text-muted">{filtered.length} leads</span>
+      <span class="text-xs text-text-muted font-mono">{filtered.length} / {leads.length} leads</span>
     </div>
 
     <!-- Table -->

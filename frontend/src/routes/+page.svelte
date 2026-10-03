@@ -1,17 +1,16 @@
-<!-- +page.svelte — Dashboard: list of runs, warm illustration style -->
+<!-- +page.svelte — Dashboard: pipeline runs overview -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api } from '$lib/api';
+  import { funnelMetrics, totalSpend } from '$lib/types';
   import type { RunSummary, RunStatus } from '$lib/types';
   import RunCard from '$lib/components/RunCard.svelte';
   import StatusBar from '$lib/components/StatusBar.svelte';
-  import PipelineSteps from '$lib/components/PipelineSteps.svelte';
 
   let runs: RunSummary[] = [];
   let status: RunStatus = { status: 'idle' };
   let loading = true;
   let error: string | null = null;
-  let activeStep = 0;
 
   async function fetchRuns() {
     try {
@@ -54,27 +53,27 @@
     fetchStatus();
   });
 
-  $: totalLeads = runs.reduce((s, r) => s + (r.lead_count || 0), 0);
-  $: totalSpend = runs.reduce((s, r) => s + (r.spend?.total_usd || 0), 0);
+  // Aggregate stats from actual backend data
+  $: aggScraped = runs.reduce((s, r) => s + (funnelMetrics(r.funnel || {}).scraped), 0);
+  $: aggQualified = runs.reduce((s, r) => s + (funnelMetrics(r.funnel || {}).qualified), 0);
+  $: aggSpend = runs.reduce((s, r) => s + totalSpend(r.spend || {}), 0);
+  $: avgYield = aggScraped > 0 ? ((aggQualified / aggScraped) * 100).toFixed(0) : '—';
 </script>
 
 <svelte:head>
-  <title>StartupScrape — Runs</title>
+  <title>StartupScrape — Pipeline</title>
 </svelte:head>
 
 <div class="animate-fade-in">
-  <!-- Pipeline step tabs -->
-  <PipelineSteps bind:activeStep />
-
   <!-- Header -->
-  <div class="flex items-start justify-between mb-8 mt-4">
+  <div class="flex items-start justify-between mb-6">
     <div>
       <h1 class="text-2xl font-bold text-text-primary tracking-tight">Pipeline Runs</h1>
-      <p class="text-sm text-text-secondary mt-1">YC startup lead enrichment & scoring</p>
+      <p class="text-sm text-text-secondary mt-1">YC startup sourcing, scoring & enrichment</p>
     </div>
     <div class="flex items-center gap-3">
       {#if status.status === 'running'}
-        <div class="flex items-center gap-2 text-sm text-[#c2410c]">
+        <div class="flex items-center gap-2 text-sm text-[#c2410c] font-medium">
           <span class="w-2 h-2 rounded-full bg-[#f97316] animate-pulse-slow"></span>
           Run in progress…
         </div>
@@ -93,20 +92,28 @@
     <StatusBar />
   {/if}
 
-  <!-- Summary stats -->
+  <!-- Summary stats — computed from real backend data -->
   {#if runs.length > 0}
-    <div class="grid grid-cols-3 gap-4 mb-8">
-      <div class="card px-5 py-4">
-        <p class="label mb-1">Total runs</p>
-        <p class="text-2xl font-bold text-text-primary">{runs.length}</p>
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
+      <div class="card px-4 py-3">
+        <p class="label mb-1">Runs</p>
+        <p class="text-xl font-bold text-text-primary">{runs.length}</p>
       </div>
-      <div class="card px-5 py-4">
-        <p class="label mb-1">Leads qualified</p>
-        <p class="text-2xl font-bold text-emerald-700">{totalLeads}</p>
+      <div class="card px-4 py-3">
+        <p class="label mb-1">Scraped</p>
+        <p class="text-xl font-bold text-text-primary">{aggScraped}</p>
       </div>
-      <div class="card px-5 py-4">
-        <p class="label mb-1">Total spend</p>
-        <p class="text-2xl font-bold text-text-primary font-mono">${totalSpend.toFixed(3)}</p>
+      <div class="card px-4 py-3">
+        <p class="label mb-1">Qualified</p>
+        <p class="text-xl font-bold text-emerald-700">{aggQualified}</p>
+      </div>
+      <div class="card px-4 py-3">
+        <p class="label mb-1">Yield</p>
+        <p class="text-xl font-bold text-text-primary">{avgYield}{avgYield !== '—' ? '%' : ''}</p>
+      </div>
+      <div class="card px-4 py-3">
+        <p class="label mb-1">Treg Spend</p>
+        <p class="text-xl font-bold text-text-primary font-mono">${aggSpend.toFixed(3)}</p>
       </div>
     </div>
   {/if}
@@ -132,7 +139,7 @@
         <span class="text-[#c2410c] text-lg">⚡</span>
       </div>
       <p class="text-text-primary font-semibold mb-1">No runs yet</p>
-      <p class="text-text-secondary text-sm mb-5">Trigger your first pipeline run to find and score YC leads.</p>
+      <p class="text-text-secondary text-sm mb-5">Trigger your first pipeline run to source and score YC leads.</p>
       <button on:click={triggerRun} class="btn-primary mx-auto">Run Pipeline</button>
     </div>
   {:else}
