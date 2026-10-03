@@ -1,26 +1,20 @@
-<!-- /runs/new/+page.svelte — Trigger a new pipeline run -->
-<script>
-  import { goto } from '$app/navigation';
-
-  const API = import.meta.env.VITE_API_URL || '';
+<!-- /runs/new/+page.svelte — Trigger a new pipeline run, warm palette -->
+<script lang="ts">
+  import { api } from '$lib/api';
 
   let running = false;
-  let error = null;
-  let status = null;
-  let runId = null;
+  let error: string | null = null;
+  let status: string | null = null;
+  let runId: string | null = null;
 
   async function startRun() {
     running = true;
     error = null;
     try {
-      const r = await fetch(`${API}/api/run`, { method: 'POST' });
-      if (!r.ok) {
-        const body = await r.json();
-        throw new Error(body.detail || 'Failed to start run');
-      }
+      await api.pipeline.startRun();
       status = 'running';
       poll();
-    } catch (e) {
+    } catch (e: any) {
       error = e.message;
       running = false;
     }
@@ -29,13 +23,12 @@
   function poll() {
     const iv = setInterval(async () => {
       try {
-        const r = await fetch(`${API}/api/status`);
-        const s = await r.json();
+        const s = await api.pipeline.getStatus();
         if (s.status === 'done') {
           clearInterval(iv);
           running = false;
           status = 'done';
-          runId = s.run_id;
+          runId = s.run_id || null;
         } else if (s.status === 'error') {
           clearInterval(iv);
           running = false;
@@ -53,25 +46,40 @@
 
 <div class="max-w-lg mx-auto mt-16 animate-fade-in">
   <div class="card p-8">
-    <h1 class="text-xl font-semibold text-text-primary mb-1">New Pipeline Run</h1>
+    <div class="flex items-center gap-2 mb-1">
+      <span class="text-[#c2410c] font-black text-lg">⚡</span>
+      <h1 class="text-xl font-bold text-text-primary">New Pipeline Run</h1>
+    </div>
     <p class="text-sm text-text-secondary mb-6">Scrape YC companies, enrich with founder data, score with JEV, and find emails.</p>
 
+    <!-- Cost breakdown -->
+    <div class="flex items-center gap-2 mb-6 text-[10px] font-mono text-text-muted">
+      <span class="text-[#c2410c] font-bold">COST:</span>
+      <span>Algolia $0.00</span>
+      <span class="text-text-faint">→</span>
+      <span class="text-[#7e22ce]">JEV $0.04</span>
+      <span class="text-text-faint">→</span>
+      <span class="text-[#059669]">Treg.to $0.005</span>
+      <span class="text-text-faint">=</span>
+      <span class="text-[#c2410c] font-bold">$0.045/lead</span>
+    </div>
+
     {#if error}
-      <div class="mb-4 px-4 py-3 rounded-lg bg-red-400/10 border border-red-400/20 text-sm text-red-300">
+      <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">
         {error}
       </div>
     {/if}
 
     {#if status === 'running'}
-      <div class="mb-6 flex items-center gap-3 px-4 py-3 rounded-lg bg-accent/5 border border-accent/20">
-        <span class="w-2 h-2 rounded-full bg-accent animate-pulse flex-shrink-0"></span>
+      <div class="mb-6 flex items-center gap-3 px-4 py-3 rounded-lg bg-orange-50/60 border border-orange-200">
+        <span class="w-2 h-2 rounded-full bg-[#f97316] animate-pulse flex-shrink-0"></span>
         <p class="text-sm text-text-primary">Pipeline running — this takes 2–5 minutes…</p>
       </div>
     {/if}
 
     {#if status === 'done' && runId}
-      <div class="mb-6 px-4 py-3 rounded-lg bg-accent/10 border border-accent/20">
-        <p class="text-sm text-accent font-medium mb-2">✓ Run complete</p>
+      <div class="mb-6 px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-200">
+        <p class="text-sm text-emerald-800 font-semibold mb-2">✓ Run complete</p>
         <a href="/runs/{runId}" class="btn-primary text-sm">View results →</a>
       </div>
     {/if}

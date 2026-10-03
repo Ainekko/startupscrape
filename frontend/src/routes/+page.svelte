@@ -1,19 +1,21 @@
-<!-- +page.svelte — Dashboard: list of runs -->
+<!-- +page.svelte — Dashboard: list of runs, warm illustration style -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { pipelineApi } from '$lib/api/pipeline';
-  import type { RunSummary, RunStatus } from '$lib/api/pipeline';
+  import { api } from '$lib/api';
+  import type { RunSummary, RunStatus } from '$lib/types';
   import RunCard from '$lib/components/RunCard.svelte';
   import StatusBar from '$lib/components/StatusBar.svelte';
+  import PipelineSteps from '$lib/components/PipelineSteps.svelte';
 
   let runs: RunSummary[] = [];
   let status: RunStatus = { status: 'idle' };
   let loading = true;
   let error: string | null = null;
+  let activeStep = 0;
 
   async function fetchRuns() {
     try {
-      runs = await pipelineApi.listRuns();
+      runs = await api.pipeline.listRuns();
     } catch (e: any) {
       error = e.message;
     } finally {
@@ -23,13 +25,13 @@
 
   async function fetchStatus() {
     try {
-      status = await pipelineApi.getStatus();
+      status = await api.pipeline.getStatus();
     } catch {}
   }
 
   async function triggerRun() {
     try {
-      await pipelineApi.startRun();
+      await api.pipeline.startRun();
       status = { status: 'running' };
       pollStatus();
     } catch (e: any) {
@@ -61,16 +63,19 @@
 </svelte:head>
 
 <div class="animate-fade-in">
+  <!-- Pipeline step tabs -->
+  <PipelineSteps bind:activeStep />
+
   <!-- Header -->
-  <div class="flex items-start justify-between mb-8">
+  <div class="flex items-start justify-between mb-8 mt-4">
     <div>
-      <h1 class="text-2xl font-semibold text-text-primary tracking-tight">Pipeline Runs</h1>
+      <h1 class="text-2xl font-bold text-text-primary tracking-tight">Pipeline Runs</h1>
       <p class="text-sm text-text-secondary mt-1">YC startup lead enrichment & scoring</p>
     </div>
     <div class="flex items-center gap-3">
       {#if status.status === 'running'}
-        <div class="flex items-center gap-2 text-sm text-accent">
-          <span class="w-2 h-2 rounded-full bg-accent animate-pulse-slow"></span>
+        <div class="flex items-center gap-2 text-sm text-[#c2410c]">
+          <span class="w-2 h-2 rounded-full bg-[#f97316] animate-pulse-slow"></span>
           Run in progress…
         </div>
       {:else}
@@ -93,15 +98,15 @@
     <div class="grid grid-cols-3 gap-4 mb-8">
       <div class="card px-5 py-4">
         <p class="label mb-1">Total runs</p>
-        <p class="text-2xl font-semibold text-text-primary">{runs.length}</p>
+        <p class="text-2xl font-bold text-text-primary">{runs.length}</p>
       </div>
       <div class="card px-5 py-4">
         <p class="label mb-1">Leads qualified</p>
-        <p class="text-2xl font-semibold text-accent">{totalLeads}</p>
+        <p class="text-2xl font-bold text-emerald-700">{totalLeads}</p>
       </div>
       <div class="card px-5 py-4">
         <p class="label mb-1">Total spend</p>
-        <p class="text-2xl font-semibold text-text-primary">${totalSpend.toFixed(3)}</p>
+        <p class="text-2xl font-bold text-text-primary font-mono">${totalSpend.toFixed(3)}</p>
       </div>
     </div>
   {/if}
@@ -111,24 +116,22 @@
     <div class="space-y-3">
       {#each Array(3) as _}
         <div class="card p-5 animate-pulse">
-          <div class="h-4 bg-surface-4 rounded w-40 mb-3"></div>
-          <div class="h-3 bg-surface-3 rounded w-64"></div>
+          <div class="h-4 bg-surface-3 rounded w-40 mb-3"></div>
+          <div class="h-3 bg-surface-4 rounded w-64"></div>
         </div>
       {/each}
     </div>
   {:else if error}
     <div class="card p-8 text-center">
-      <p class="text-red-400 text-sm mb-1">Could not reach the backend.</p>
+      <p class="text-red-700 text-sm mb-1">Could not reach the backend.</p>
       <p class="text-text-muted text-xs font-mono">{error}</p>
     </div>
   {:else if runs.length === 0}
     <div class="card p-12 text-center">
-      <div class="w-12 h-12 rounded-full bg-surface-3 flex items-center justify-center mx-auto mb-4">
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M2.5 2L17.5 10L2.5 18V2Z" fill="#52525b"/>
-        </svg>
+      <div class="w-12 h-12 rounded-full bg-orange-50 border border-orange-200 flex items-center justify-center mx-auto mb-4">
+        <span class="text-[#c2410c] text-lg">⚡</span>
       </div>
-      <p class="text-text-primary font-medium mb-1">No runs yet</p>
+      <p class="text-text-primary font-semibold mb-1">No runs yet</p>
       <p class="text-text-secondary text-sm mb-5">Trigger your first pipeline run to find and score YC leads.</p>
       <button on:click={triggerRun} class="btn-primary mx-auto">Run Pipeline</button>
     </div>

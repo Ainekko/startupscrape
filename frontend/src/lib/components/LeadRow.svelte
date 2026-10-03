@@ -1,4 +1,4 @@
-<!-- LeadRow.svelte — Expandable table row for a single lead -->
+<!-- LeadRow.svelte — Expandable table row for a single lead, warm palette -->
 <script>
   import ScoreBadge from './ScoreBadge.svelte';
   import SignalPill from './SignalPill.svelte';
@@ -6,8 +6,8 @@
   export let lead;
   let expanded = false;
 
-  $: email = lead.email_result?.email || null;
-  $: emailVerified = lead.email_result?.verified || false;
+  $: email = lead.email_result?.email || lead.email || null;
+  $: emailVerified = lead.email_result?.verified || lead.email_status === 'verified' || false;
   $: signals = lead.signals || [];
   $: jevProbs = lead.jev_probs || {};
 
@@ -26,7 +26,7 @@
 >
   <!-- Score -->
   <td class="px-4 py-3">
-    <ScoreBadge score={lead.tier1_score} />
+    <ScoreBadge score={lead.tier1_score || lead.final_score || 0} />
   </td>
 
   <!-- Company -->
@@ -47,13 +47,19 @@
 
   <!-- Batch -->
   <td class="px-4 py-3 hidden md:table-cell">
-    <span class="badge badge-gray">{lead.batch || '—'}</span>
+    {#if lead.batch}
+      <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#ff6600]/10 text-[#ea580c] border border-[#ff6600]/20">
+        {lead.batch}
+      </span>
+    {:else}
+      <span class="text-text-muted">—</span>
+    {/if}
   </td>
 
   <!-- Founder -->
   <td class="px-4 py-3 hidden lg:table-cell">
     {#if lead.founder_name}
-      <p class="text-text-primary text-sm">{lead.founder_name}</p>
+      <p class="text-text-primary text-sm font-medium">{lead.founder_name}</p>
       <p class="text-xs text-text-muted">{lead.founder_title || ''}</p>
     {:else}
       <span class="text-text-muted">—</span>
@@ -63,14 +69,16 @@
   <!-- Email -->
   <td class="px-4 py-3 hidden lg:table-cell">
     {#if email}
-      <a
-        href="mailto:{email}"
-        class="font-mono text-xs text-accent hover:underline"
-        on:click|stopPropagation
-      >{email}</a>
-      {#if emailVerified}
-        <span class="ml-1 text-accent/60 text-xs">✓</span>
-      {/if}
+      <div class="flex items-center gap-1.5">
+        <a
+          href="mailto:{email}"
+          class="font-mono text-xs text-blue-700 hover:underline"
+          on:click|stopPropagation
+        >{email}</a>
+        {#if emailVerified}
+          <span class="text-[8px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">✓ VERIFIED</span>
+        {/if}
+      </div>
     {:else}
       <span class="text-text-muted">—</span>
     {/if}
@@ -110,7 +118,7 @@
           <!-- Company info -->
           <div>
             <p class="label mb-2">Company</p>
-            <p class="text-text-primary font-medium">{lead.company_name}</p>
+            <p class="text-text-primary font-semibold">{lead.company_name}</p>
             {#if lead.one_liner}
               <p class="text-text-secondary text-sm mt-1">{lead.one_liner}</p>
             {/if}
@@ -139,10 +147,10 @@
                   {#if f.title}<p class="text-text-muted text-xs">{f.title}</p>{/if}
                   <div class="flex gap-2 mt-1.5">
                     {#if f.linkedin_url}
-                      <a href={f.linkedin_url} target="_blank" rel="noopener" class="text-xs text-accent hover:underline">LinkedIn ↗</a>
+                      <a href={f.linkedin_url} target="_blank" rel="noopener" class="text-xs text-blue-700 hover:underline">LinkedIn ↗</a>
                     {/if}
                     {#if f.twitter_url}
-                      <a href={f.twitter_url} target="_blank" rel="noopener" class="text-xs text-accent hover:underline">X ↗</a>
+                      <a href={f.twitter_url} target="_blank" rel="noopener" class="text-xs text-blue-700 hover:underline">X ↗</a>
                     {/if}
                   </div>
                 </div>
@@ -152,8 +160,12 @@
             {/if}
             {#if email}
               <div class="mt-2 flex items-center gap-2">
-                <span class="font-mono text-xs text-accent">{email}</span>
-                {#if emailVerified}<span class="text-accent/60 text-xs">✓ verified</span>{:else}<span class="text-text-muted text-xs">unverified</span>{/if}
+                <span class="font-mono text-xs text-blue-700">{email}</span>
+                {#if emailVerified}
+                  <span class="text-emerald-700 text-xs font-semibold">✓ verified</span>
+                {:else}
+                  <span class="text-text-muted text-xs">unverified</span>
+                {/if}
               </div>
             {/if}
           </div>

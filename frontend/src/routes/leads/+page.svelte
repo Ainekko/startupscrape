@@ -1,53 +1,49 @@
-<!-- /leads/+page.svelte — All leads across all runs -->
-<script>
+<!-- /leads/+page.svelte — All leads across all runs, warm palette -->
+<script lang="ts">
   import { onMount } from 'svelte';
+  import { api } from '$lib/api';
+  import type { Lead } from '$lib/types';
   import LeadRow from '$lib/components/LeadRow.svelte';
-  import ScoreBadge from '$lib/components/ScoreBadge.svelte';
 
-  const API = import.meta.env.VITE_API_URL || '';
-
-  let leads = [];
+  let leads: Lead[] = [];
   let loading = true;
-  let error = null;
+  let error: string | null = null;
   let search = '';
-  let sortBy = 'tier1_score';
+  let sortBy: string = 'tier1_score';
   let sortDir = -1;
   let filterCompetitor = false;
 
   onMount(async () => {
     try {
-      const r = await fetch(`${API}/api/runs`);
-      const runs = await r.json();
-
-      // Fetch details for each run and merge leads
+      const runs = await api.pipeline.listRuns();
       const details = await Promise.all(
-        runs.map(run => fetch(`${API}/api/runs/${run.run_id}`).then(r => r.json()).catch(() => null))
+        runs.map(run => api.pipeline.getRun(run.run_id).catch(() => null))
       );
 
-      const seen = new Set();
+      const seen = new Set<string>();
       for (const d of details) {
         if (!d?.leads) continue;
         for (const l of d.leads) {
           if (!seen.has(l.id)) {
             seen.add(l.id);
-            leads.push({ ...l, _run_id: d.run_id });
+            leads.push(l);
           }
         }
       }
-      leads = [...leads]; // trigger reactivity
-    } catch (e) {
+      leads = [...leads];
+    } catch (e: any) {
       error = e.message;
     } finally {
       loading = false;
     }
   });
 
-  function toggleSort(col) {
+  function toggleSort(col: string) {
     if (sortBy === col) sortDir = -sortDir;
     else { sortBy = col; sortDir = -1; }
   }
 
-  function sortIcon(col) {
+  function sortIcon(col: string) {
     if (sortBy !== col) return '↕';
     return sortDir === -1 ? '↓' : '↑';
   }
@@ -64,7 +60,7 @@
         (l.batch || '').toLowerCase().includes(q)
       );
     })
-    .sort((a, b) => {
+    .sort((a: any, b: any) => {
       const av = a[sortBy] ?? 0;
       const bv = b[sortBy] ?? 0;
       if (typeof av === 'string') return sortDir * av.localeCompare(bv);
@@ -79,11 +75,11 @@
 <div class="animate-fade-in">
   <div class="flex items-start justify-between mb-6">
     <div>
-      <h1 class="text-2xl font-semibold text-text-primary tracking-tight">All Leads</h1>
+      <h1 class="text-2xl font-bold text-text-primary tracking-tight">All Leads</h1>
       <p class="text-sm text-text-secondary mt-1">Deduplicated across all pipeline runs</p>
     </div>
     {#if !loading}
-      <span class="badge badge-gray mt-1">{leads.length} unique leads</span>
+      <span class="badge badge-orange mt-1">{leads.length} unique leads</span>
     {/if}
   </div>
 
@@ -98,11 +94,11 @@
         bind:value={search}
         type="text"
         placeholder="Search leads…"
-        class="w-full pl-9 pr-4 py-2 bg-surface-2 border border-border rounded-lg text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent/40 transition-colors"
+        class="w-full pl-9 pr-4 py-2 bg-white border border-border rounded-lg text-sm text-text-primary placeholder-text-faint focus:outline-none focus:border-[#c2410c]/40 focus:ring-2 focus:ring-[#c2410c]/10 transition-colors"
       />
     </div>
     <label class="flex items-center gap-2 text-sm text-text-secondary cursor-pointer select-none">
-      <input type="checkbox" bind:checked={filterCompetitor} class="rounded accent-accent w-3.5 h-3.5" />
+      <input type="checkbox" bind:checked={filterCompetitor} class="rounded accent-[#c2410c] w-3.5 h-3.5" />
       Hide competitors
     </label>
     <span class="text-xs text-text-muted">{filtered.length} shown</span>
@@ -112,21 +108,21 @@
     <div class="space-y-3">
       {#each Array(6) as _}
         <div class="card p-4 animate-pulse">
-          <div class="h-4 bg-surface-4 rounded w-48 mb-2"></div>
-          <div class="h-3 bg-surface-3 rounded w-80"></div>
+          <div class="h-4 bg-surface-3 rounded w-48 mb-2"></div>
+          <div class="h-3 bg-surface-4 rounded w-80"></div>
         </div>
       {/each}
     </div>
   {:else if error}
     <div class="card p-12 text-center">
-      <p class="text-red-400 text-sm">{error}</p>
+      <p class="text-red-700 text-sm">{error}</p>
     </div>
   {:else}
     <div class="card overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
-            <tr class="border-b border-border">
+            <tr class="border-b border-border bg-surface-1">
               <th class="px-4 py-3 text-left">
                 <button on:click={() => toggleSort('tier1_score')} class="label hover:text-text-secondary transition-colors flex items-center gap-1">
                   Score {sortIcon('tier1_score')}

@@ -1,18 +1,21 @@
-<!-- ScoreBadge.svelte -->
+<!-- ScoreBadge.svelte — Score indicator matching illustration style -->
 <script>
   export let score = 0;
+  export let maxScore = 100;
+
+  $: pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
 
   $: tier =
-    score >= 30 ? 'high' :
-    score >= 15 ? 'mid' :
+    pct >= 70 ? 'high' :
+    pct >= 40 ? 'mid' :
     'low';
 
   $: color =
-    tier === 'high' ? 'text-lead-high bg-lead-high/10 border-lead-high/20' :
-    tier === 'mid'  ? 'text-lead-mid bg-lead-mid/10 border-lead-mid/20' :
-                     'text-lead-low bg-lead-low/10 border-lead-low/20';
+    tier === 'high' ? 'text-emerald-800 bg-emerald-50 border-emerald-200' :
+    tier === 'mid'  ? 'text-amber-800 bg-amber-50 border-amber-200' :
+                      'text-red-800 bg-red-50 border-red-200';
 </script>
 
-<span class="inline-flex items-center justify-center w-10 h-7 rounded-md border font-mono text-xs font-semibold {color}">
+<span class="inline-flex items-center justify-center w-10 h-7 rounded-md border font-mono text-xs font-bold {color}">
   {score}
 </span>

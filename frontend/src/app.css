@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   * {
@@ -14,10 +14,11 @@
   body {
     @apply bg-surface-0 text-text-primary antialiased;
     min-height: 100vh;
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   }
 
   ::selection {
-    background: rgba(110, 231, 183, 0.2);
+    background: rgba(194, 65, 12, 0.15);
   }
 
   ::-webkit-scrollbar {
@@ -28,25 +29,29 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.1);
+    background: rgba(0, 0, 0, 0.1);
     border-radius: 99px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255,255,255,0.18);
+    background: rgba(0, 0, 0, 0.18);
   }
 }
 
 @layer components {
   .card {
-    @apply bg-surface-2 border border-border rounded-xl shadow-card;
+    @apply bg-white border border-border rounded-2xl shadow-card;
   }
 
   .card-hover {
-    @apply hover:bg-surface-3 hover:shadow-card-hover transition-all duration-200;
+    @apply hover:shadow-card-hover hover:border-[#d8d0c5] transition-all duration-200;
+  }
+
+  .card-active {
+    @apply bg-white shadow-card-active;
   }
 
   .btn-primary {
-    @apply inline-flex items-center gap-2 px-4 py-2 bg-accent text-surface-0 text-sm font-medium rounded-lg
+    @apply inline-flex items-center gap-2 px-4 py-2 bg-accent text-white text-sm font-medium rounded-lg
            hover:bg-accent-dim active:scale-95 transition-all duration-150 cursor-pointer;
   }
 
@@ -60,19 +65,31 @@
   }
 
   .badge-green {
-    @apply badge bg-accent/10 text-accent;
+    @apply badge bg-emerald-50 text-emerald-800 border border-emerald-200;
   }
 
   .badge-yellow {
-    @apply badge bg-yellow-400/10 text-yellow-400;
+    @apply badge bg-amber-50 text-amber-800 border border-amber-200;
   }
 
   .badge-red {
-    @apply badge bg-red-400/10 text-red-400;
+    @apply badge bg-red-50 text-red-800 border border-red-200;
   }
 
   .badge-gray {
-    @apply badge bg-surface-4 text-text-muted;
+    @apply badge bg-surface-3 text-text-muted border border-surface-4;
+  }
+
+  .badge-orange {
+    @apply badge bg-orange-50 text-[#c2410c] border border-orange-200 font-mono font-bold;
+  }
+
+  .badge-purple {
+    @apply badge bg-purple-50 text-purple-800 border border-purple-200 font-mono font-bold;
+  }
+
+  .badge-blue {
+    @apply badge bg-blue-50 text-blue-800 border border-blue-200 font-mono font-bold;
   }
 
   .table-row-base {
@@ -80,7 +97,7 @@
   }
 
   .table-row-base:hover {
-    @apply bg-surface-3;
+    @apply bg-surface-1;
   }
 
   .mono {
@@ -90,7 +107,46 @@
   .label {
     @apply text-xs font-medium tracking-wider uppercase text-text-muted;
   }
+
+  /* Logo pill used in header tech stack row */
+  .logo-pill {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-surface-4 text-[0.65rem] font-semibold text-[#44403c] shadow-2xs;
+  }
+
+  /* Stage card hover lift */
+  .stage-card {
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+  }
+  .stage-card:hover {
+    transform: translateY(-2px);
+  }
+
+  /* Score bar gradient fill */
+  .score-bar-fill {
+    background: linear-gradient(90deg, #9333ea, #f59e0b);
+    position: relative;
+    overflow: hidden;
+  }
+  .score-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+    animation: barShimmer 2s infinite;
+  }
+
+  @keyframes barShimmer {
+    0% { transform: translateX(0%); }
+    100% { transform: translateX(200%); }
+  }
 }
+
+/* Scrollbar-none utility */
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* Detail expand animation */
 .detail-panel {
