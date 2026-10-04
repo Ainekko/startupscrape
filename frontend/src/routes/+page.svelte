@@ -6,6 +6,7 @@
   import type { RunSummary, RunStatus } from '$lib/types';
   import RunCard from '$lib/components/RunCard.svelte';
   import StatusBar from '$lib/components/StatusBar.svelte';
+  import GrokBot from '$lib/components/GrokBot.svelte';
 
   let runs: RunSummary[] = [];
   let status: RunStatus = { status: 'idle' };
@@ -61,7 +62,7 @@
 </script>
 
 <svelte:head>
-  <title>StartupScrape — Pipeline</title>
+  <title>Verve — Autonomous YC Lead Pipeline</title>
 </svelte:head>
 
 <div class="animate-fade-in">
@@ -69,7 +70,7 @@
   <div class="flex items-start justify-between mb-6">
     <div>
       <h1 class="text-2xl font-bold text-text-primary tracking-tight">Pipeline Runs</h1>
-      <p class="text-sm text-text-secondary mt-1">YC startup sourcing, scoring & enrichment</p>
+      <p class="text-sm text-text-secondary mt-1">Autonomous YC startup sourcing, scoring & verified enrichment</p>
     </div>
     <div class="flex items-center gap-3">
       {#if status.status === 'running'}
@@ -91,6 +92,47 @@
   {#if status.status === 'running'}
     <StatusBar />
   {/if}
+
+  <!-- Pipeline Workflow Header Bar with Real Logos -->
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3 text-xs font-mono bg-white border border-[#e7dfd4] px-4 py-3 rounded-2xl shadow-sm">
+    <div class="flex items-center gap-2.5">
+      <GrokBot size={30} theme="dark" />
+      <span class="text-[11px] font-black text-[#c2410c] tracking-wider uppercase">PIPELINE:</span>
+    </div>
+
+    <div class="flex items-center flex-wrap gap-2">
+      <!-- Step 1: Algolia Search -->
+      <div class="flex items-center gap-1.5 px-2.5 py-1 bg-[#fbf9f5] rounded-lg border border-[#e5ddd0]">
+        <div class="w-4 h-4 rounded overflow-hidden flex items-center justify-center flex-shrink-0">
+          <img src="/flowjoy/algolia.svg" alt="Algolia" class="w-full h-full object-contain" />
+        </div>
+        <div class="w-3.5 h-3.5 rounded overflow-hidden flex items-center justify-center flex-shrink-0 -ml-0.5">
+          <img src="/flowjoy/yc.svg" alt="YC" class="w-full h-full object-contain" />
+        </div>
+        <span class="font-bold text-[#1c1917] text-[11px]">Algolia Search</span>
+      </div>
+
+      <span class="text-[#a8a29e] font-bold text-sm">→</span>
+
+      <!-- Step 2: JEV ICP Scoring -->
+      <div class="flex items-center gap-1.5 px-2.5 py-1 bg-[#fbf9f5] rounded-lg border border-purple-200">
+        <div class="w-4 h-4 rounded-xs overflow-hidden flex-shrink-0 border border-purple-100">
+          <img src="/flowjoy/typesafe-ai-200x200.jfif" alt="JEV" class="w-full h-full object-cover" />
+        </div>
+        <span class="font-bold text-[#7e22ce] text-[11px]">JEV ICP Scoring</span>
+      </div>
+
+      <span class="text-[#a8a29e] font-bold text-sm">→</span>
+
+      <!-- Step 3: Treg.to Email Enrichment -->
+      <div class="flex items-center gap-1.5 px-2.5 py-1 bg-[#fbf9f5] rounded-lg border border-emerald-200">
+        <div class="w-4 h-4 rounded overflow-hidden flex items-center justify-center flex-shrink-0">
+          <img src="/flowjoy/treg.svg" alt="Treg.to" class="w-full h-full object-contain" />
+        </div>
+        <span class="font-bold text-[#059669] text-[11px]">Treg.to Email Enrichment</span>
+      </div>
+    </div>
+  </div>
 
   <!-- Summary stats — computed from real backend data -->
   {#if runs.length > 0}

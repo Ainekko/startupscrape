@@ -164,6 +164,7 @@ class LeadFilterParams(BaseModel):
     has_email: Optional[bool] = None
     outreach_status: Optional[str] = None
     run_id: Optional[str] = None
+    dedupe: bool = True
     sort_by: str = "score_desc"  # score_desc, score_asc, name_asc, date_desc
     limit: int = 50
     offset: int = 0

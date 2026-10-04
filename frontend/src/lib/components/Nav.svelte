@@ -1,15 +1,23 @@
-<!-- Nav.svelte — Header bar -->
+<!-- Nav.svelte — Header bar with GrokBot logo -->
 <script>
   import { page } from '$app/stores';
+  import GrokBot from './GrokBot.svelte';
 </script>
 
 <nav class="sticky top-0 z-50 w-full border-b border-[#e7dfd4] bg-[#fbf9f5]/90 backdrop-blur-md">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex h-14 items-center justify-between">
       <!-- Logo -->
-      <a href="/" class="flex items-center gap-2 group">
-        <span class="text-[#c2410c] font-black text-base">⚡</span>
-        <span class="text-sm font-bold text-text-primary tracking-tight">StartupScrape</span>
+      <a href="/" class="flex items-center gap-2.5 group no-underline">
+        <GrokBot size={30} theme="dark" />
+        <div class="flex items-center gap-2">
+          <span class="text-base font-extrabold text-[#1c1917] tracking-tight group-hover:text-[#c2410c] transition-colors">
+            Verve
+          </span>
+          <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-orange-50 text-[#c2410c] border border-orange-200">
+            Pipeline
+          </span>
+        </div>
       </a>
 
       <!-- Nav links -->

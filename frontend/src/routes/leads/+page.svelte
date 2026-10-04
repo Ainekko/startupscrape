@@ -1,42 +1,42 @@
-<!-- /leads/+page.svelte — All leads across all runs, warm palette -->
+<!-- /leads/+page.svelte — All leads, deduped, with pipeline header -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api } from '$lib/api';
   import type { Lead } from '$lib/types';
   import LeadRow from '$lib/components/LeadRow.svelte';
+  import PipelineFlowHeader from '$lib/components/PipelineFlowHeader.svelte';
 
   let leads: Lead[] = [];
+  let totalCount = 0;
+  let rawCount = 0;
   let loading = true;
   let error: string | null = null;
   let search = '';
-  let sortBy: string = 'tier1_score';
+  let sortBy: string = 'final_score';
   let sortDir = -1;
   let filterCompetitor = false;
+  let filterHasEmail = false;
 
-  onMount(async () => {
+  async function loadLeads() {
+    loading = true;
+    error = null;
     try {
-      const runs = await api.pipeline.listRuns();
-      const details = await Promise.all(
-        runs.map(run => api.pipeline.getRun(run.run_id).catch(() => null))
-      );
+      // Deduped view for display
+      const deduped = await api.leads.list({ limit: 500, dedupe: true });
+      leads = deduped.items || [];
+      totalCount = deduped.total || leads.length;
 
-      const seen = new Set<string>();
-      for (const d of details) {
-        if (!d?.leads) continue;
-        for (const l of d.leads) {
-          if (!seen.has(l.id)) {
-            seen.add(l.id);
-            leads.push(l);
-          }
-        }
-      }
-      leads = [...leads];
+      // Raw count for context
+      const raw = await api.leads.list({ limit: 1, dedupe: false });
+      rawCount = raw.total || 0;
     } catch (e: any) {
       error = e.message;
     } finally {
       loading = false;
     }
-  });
+  }
+
+  onMount(() => loadLeads());
 
   function toggleSort(col: string) {
     if (sortBy === col) sortDir = -sortDir;
@@ -50,6 +50,7 @@
 
   $: filtered = leads
     .filter(l => !filterCompetitor || !l.is_competitor)
+    .filter(l => !filterHasEmail || !!(l.email || l.email_result?.email))
     .filter(l => {
       if (!search) return true;
       const q = search.toLowerCase();
@@ -69,23 +70,16 @@
 </script>
 
 <svelte:head>
-  <title>All Leads — StartupScrape</title>
+  <title>Verified Leads — Verve</title>
 </svelte:head>
 
 <div class="animate-fade-in">
-  <div class="flex items-start justify-between mb-6">
-    <div>
-      <h1 class="text-2xl font-bold text-text-primary tracking-tight">All Leads</h1>
-      <p class="text-sm text-text-secondary mt-1">Deduplicated across all pipeline runs</p>
-    </div>
-    {#if !loading}
-      <span class="badge badge-orange mt-1">{leads.length} unique leads</span>
-    {/if}
-  </div>
+  <!-- Pipeline flow header (replaces boring DB subtitle) -->
+  <PipelineFlowHeader uniqueCount={loading ? null : totalCount} leadCount={loading ? null : rawCount} />
 
   <!-- Controls -->
-  <div class="flex items-center gap-3 mb-4">
-    <div class="flex-1 relative">
+  <div class="flex items-center gap-2 mb-4 flex-wrap">
+    <div class="flex-1 relative min-w-[180px]">
       <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted w-3.5 h-3.5" viewBox="0 0 16 16" fill="none">
         <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.5"/>
         <path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -93,23 +87,32 @@
       <input
         bind:value={search}
         type="text"
-        placeholder="Search leads…"
+        placeholder="Search company, founder, pitch…"
         class="w-full pl-9 pr-4 py-2 bg-white border border-border rounded-lg text-sm text-text-primary placeholder-text-faint focus:outline-none focus:border-[#c2410c]/40 focus:ring-2 focus:ring-[#c2410c]/10 transition-colors"
       />
     </div>
-    <label class="flex items-center gap-2 text-sm text-text-secondary cursor-pointer select-none">
+
+    <label class="flex items-center gap-2 text-xs text-text-secondary cursor-pointer select-none px-3 py-2 bg-white border border-border rounded-lg hover:bg-surface-3 transition-colors">
       <input type="checkbox" bind:checked={filterCompetitor} class="rounded accent-[#c2410c] w-3.5 h-3.5" />
       Hide competitors
     </label>
-    <span class="text-xs text-text-muted">{filtered.length} shown</span>
+    <label class="flex items-center gap-2 text-xs text-text-secondary cursor-pointer select-none px-3 py-2 bg-white border border-border rounded-lg hover:bg-surface-3 transition-colors">
+      <input type="checkbox" bind:checked={filterHasEmail} class="rounded accent-emerald-600 w-3.5 h-3.5" />
+      Email only
+    </label>
+
+    <span class="text-xs text-text-muted font-mono ml-auto">{filtered.length} shown</span>
   </div>
 
   {#if loading}
-    <div class="space-y-3">
-      {#each Array(6) as _}
-        <div class="card p-4 animate-pulse">
-          <div class="h-4 bg-surface-3 rounded w-48 mb-2"></div>
-          <div class="h-3 bg-surface-4 rounded w-80"></div>
+    <div class="space-y-2">
+      {#each Array(8) as _}
+        <div class="card p-4 animate-pulse flex gap-4 items-center">
+          <div class="w-10 h-10 rounded-full bg-surface-3"></div>
+          <div class="flex-1">
+            <div class="h-3.5 bg-surface-3 rounded w-36 mb-2"></div>
+            <div class="h-2.5 bg-surface-4 rounded w-56"></div>
+          </div>
         </div>
       {/each}
     </div>
@@ -122,11 +125,9 @@
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
-            <tr class="border-b border-border bg-surface-1">
-              <th class="px-4 py-3 text-left">
-                <button on:click={() => toggleSort('tier1_score')} class="label hover:text-text-secondary transition-colors flex items-center gap-1">
-                  Score {sortIcon('tier1_score')}
-                </button>
+            <tr class="border-b border-border bg-[#faf7f3]">
+              <th class="px-4 py-3 text-left w-12">
+                <span class="label">Score</span>
               </th>
               <th class="px-4 py-3 text-left">
                 <button on:click={() => toggleSort('company_name')} class="label hover:text-text-secondary transition-colors flex items-center gap-1">
@@ -147,18 +148,19 @@
               <th class="px-4 py-3 text-left hidden xl:table-cell">
                 <span class="label">Signals</span>
               </th>
-              <th class="px-4 py-3"></th>
+              <th class="px-4 py-3 w-8"></th>
             </tr>
           </thead>
           <tbody>
             {#each filtered as lead (lead.id)}
               <LeadRow {lead} />
+            {:else}
+              <tr>
+                <td colspan="7" class="py-14 text-center text-text-muted text-sm">No leads match your filter.</td>
+              </tr>
             {/each}
           </tbody>
         </table>
-        {#if filtered.length === 0}
-          <div class="py-12 text-center text-text-muted text-sm">No leads found.</div>
-        {/if}
       </div>
     </div>
   {/if}

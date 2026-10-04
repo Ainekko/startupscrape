@@ -6,6 +6,7 @@
   import { funnelMetrics, totalSpend } from '$lib/types';
   import type { Run, Lead } from '$lib/types';
   import LeadRow from '$lib/components/LeadRow.svelte';
+  import GrokBot from '$lib/components/GrokBot.svelte';
 
   let run: Run | null = null;
   let loading = true;
@@ -59,14 +60,20 @@
     });
 
   function fmtRunId(id: string) {
-    const m = id.match(/run_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})/);
-    if (!m) return id;
-    return `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`;
+    const m = id.match(/run_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})?/);
+    if (!m) return { date: id, time: '', short: id };
+    const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] ?? '0'));
+    return {
+      date: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+      time: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+      short: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    };
   }
+  $: runLabel = run ? fmtRunId(run.run_id) : { date: '', time: '', short: '' };
 </script>
 
 <svelte:head>
-  <title>Run {$page.params.run_id} — StartupScrape</title>
+  <title>Run {runLabel.date} — Verve</title>
 </svelte:head>
 
 {#if loading}
@@ -89,13 +96,17 @@
     <div class="flex items-center gap-2 mb-1 text-sm">
       <a href="/" class="text-text-muted hover:text-[#c2410c] transition-colors">Runs</a>
       <span class="text-text-faint">/</span>
-      <span class="text-text-secondary font-mono">{fmtRunId(run.run_id)}</span>
+      <span class="text-text-secondary">{runLabel.short}</span>
     </div>
 
     <div class="flex items-start justify-between mb-6">
-      <div>
-        <h1 class="text-xl font-bold text-text-primary">{fmtRunId(run.run_id)}</h1>
-        <p class="text-xs text-text-muted font-mono mt-0.5">{run.run_id}</p>
+      <div class="flex items-center gap-3">
+        <!-- GrokBot mascot -->
+        <GrokBot size={40} theme="dark" />
+        <div>
+          <h1 class="text-xl font-bold text-text-primary">{runLabel.date}</h1>
+          <p class="text-xs text-text-muted mt-0.5">{runLabel.time}</p>
+        </div>
       </div>
       <span class="badge {run.status === 'complete' ? 'badge-green' : run.status === 'error' ? 'badge-red' : 'badge-yellow'} mt-1">
         {run.status ?? 'complete'}

@@ -1,21 +1,45 @@
-<!-- ScoreBadge.svelte — Score indicator matching illustration style -->
+<!-- ScoreBadge.svelte — Score indicator with JEV-style ring -->
 <script>
   export let score = 0;
-  export let maxScore = 100;
+  export let maxScore = 24;
 
-  $: pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
+  $: pct = maxScore > 0 ? Math.min((score / maxScore) * 100, 100) : 0;
 
   $: tier =
     pct >= 70 ? 'high' :
     pct >= 40 ? 'mid' :
     'low';
 
-  $: color =
-    tier === 'high' ? 'text-emerald-800 bg-emerald-50 border-emerald-200' :
-    tier === 'mid'  ? 'text-amber-800 bg-amber-50 border-amber-200' :
-                      'text-red-800 bg-red-50 border-red-200';
+  $: ringColor =
+    tier === 'high' ? '#059669' :
+    tier === 'mid'  ? '#d97706' :
+                      '#dc2626';
+
+  $: textColor =
+    tier === 'high' ? 'text-emerald-800' :
+    tier === 'mid'  ? 'text-amber-800' :
+                      'text-red-800';
+
+  // SVG arc math
+  const R = 11;
+  const CIRC = 2 * Math.PI * R;
+  $: dash = (pct / 100) * CIRC;
+  $: gap = CIRC - dash;
 </script>
 
-<span class="inline-flex items-center justify-center w-10 h-7 rounded-md border font-mono text-xs font-bold {color}">
-  {score}
-</span>
+<div class="relative inline-flex items-center justify-center w-[38px] h-[38px]">
+  <svg width="38" height="38" viewBox="0 0 38 38" fill="none" class="-rotate-90">
+    <!-- Track -->
+    <circle cx="19" cy="19" r={R} stroke="#e7e5e4" stroke-width="2.5" fill="none"/>
+    <!-- Progress arc -->
+    <circle
+      cx="19" cy="19" r={R}
+      stroke={ringColor}
+      stroke-width="2.5"
+      fill="none"
+      stroke-linecap="round"
+      stroke-dasharray="{dash} {gap}"
+    />
+  </svg>
+  <span class="absolute text-[10px] font-black {textColor} leading-none">{score}</span>
+</div>

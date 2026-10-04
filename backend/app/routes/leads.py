@@ -39,6 +39,7 @@ async def list_leads(
     has_email: Optional[bool] = Query(None, description="Filter leads with valid founder email"),
     outreach_status: Optional[str] = Query(None, description="Outreach status (new, contacted, etc.)"),
     run_id: Optional[str] = Query(None, description="Filter leads from a specific pipeline run"),
+    dedupe: bool = Query(True, description="Deduplicate leads across runs"),
     sort_by: str = Query("score_desc", description="Sort: score_desc, score_asc, name_asc, date_desc"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -53,6 +54,7 @@ async def list_leads(
         has_email=has_email,
         outreach_status=outreach_status,
         run_id=run_id,
+        dedupe=dedupe,
         sort_by=sort_by,
         limit=limit,
         offset=offset,
@@ -69,6 +71,7 @@ async def export_leads(
     has_email: Optional[bool] = None,
     outreach_status: Optional[str] = None,
     run_id: Optional[str] = None,
+    dedupe: bool = Query(True, description="Deduplicate leads in CSV export"),
     limit: int = Query(500, ge=1, le=2000),
     session: Optional[AsyncSession] = Depends(get_session),
 ) -> Response:
@@ -80,12 +83,13 @@ async def export_leads(
         has_email=has_email,
         outreach_status=outreach_status,
         run_id=run_id,
+        dedupe=dedupe,
         limit=limit,
         offset=0,
     )
     data = await LeadService.query_leads(session=session, params=params)
     leads_list = data.get("items", [])
-    csv_content = LeadService.export_leads_csv(leads_list)
+    csv_content = LeadService.export_leads_csv(leads_list, dedupe=dedupe)
 
     return Response(
         content=csv_content,

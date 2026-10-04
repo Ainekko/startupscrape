@@ -1,6 +1,7 @@
 <!-- /runs/new/+page.svelte — Trigger a new pipeline run, warm palette -->
 <script lang="ts">
   import { api } from '$lib/api';
+  import GrokBot from '$lib/components/GrokBot.svelte';
 
   let running = false;
   let error: string | null = null;
@@ -41,16 +42,16 @@
 </script>
 
 <svelte:head>
-  <title>New Run — StartupScrape</title>
+  <title>New Run — Verve</title>
 </svelte:head>
 
 <div class="max-w-lg mx-auto mt-16 animate-fade-in">
   <div class="card p-8">
-    <div class="flex items-center gap-2 mb-1">
-      <span class="text-[#c2410c] font-black text-lg">⚡</span>
+    <div class="flex items-center gap-3 mb-1">
+      <GrokBot size={32} theme="dark" />
       <h1 class="text-xl font-bold text-text-primary">New Pipeline Run</h1>
     </div>
-    <p class="text-sm text-text-secondary mb-6">Scrape YC companies, enrich with founder data, score with JEV, and find emails.</p>
+    <p class="text-sm text-text-secondary mb-6">Source YC companies, enrich with founder data, score with JEV, and resolve verified emails.</p>
 
     <!-- Cost breakdown -->
     <div class="flex items-center gap-2 mb-6 text-[10px] font-mono text-text-muted">

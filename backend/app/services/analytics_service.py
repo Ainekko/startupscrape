@@ -2,6 +2,7 @@
 app/services/analytics_service.py — Aggregate Statistics and Funnel Analytics
 =============================================================================
 Computes pipeline velocity, fit score distribution, and outreach conversion KPIs.
+PostgreSQL database is the primary source of truth.
 """
 
 from __future__ import annotations
@@ -28,14 +29,19 @@ DATA_DIR    = ROOT / "data"
 class AnalyticsService:
     @classmethod
     async def get_overview(cls, session: AsyncSession | None = None) -> AnalyticsOverviewResponse:
-        """Compute aggregated pipeline KPIs."""
+        """
+        Compute aggregated pipeline KPIs from the primary PostgreSQL database.
+        Falls back to file backups only if the database is disconnected.
+        """
         if session is not None:
             try:
-                # Count total runs
-                runs_count = (await session.exec(select(func.count(PipelineRun.id)))).one()
+                runs_count = (await session.exec(select(func.count(PipelineRun.id)))).one() or 0
+                leads_count = (await session.exec(select(func.count(Lead.id)))).one() or 0
 
-                # Leads metrics
-                leads_count = (await session.exec(select(func.count(Lead.id)))).one()
+                avg_score_res = 0.0
+                email_count_res = 0
+                status_breakdown = {"new": 0}
+                top_batches = []
 
                 if leads_count > 0:
                     avg_score_res = (await session.exec(select(func.avg(Lead.final_score)))).one() or 0.0
@@ -43,14 +49,13 @@ class AnalyticsService:
                         await session.exec(
                             select(func.count(Lead.id)).where(Lead.email.isnot(None))
                         )
-                    ).one()
+                    ).one() or 0
 
-                    # Status breakdown
                     leads_stmt = select(Lead.outreach_status, func.count(Lead.id)).group_by(Lead.outreach_status)
                     status_rows = (await session.exec(leads_stmt)).all()
-                    status_breakdown = {row[0]: row[1] for row in status_rows}
+                    if status_rows:
+                        status_breakdown = {row[0]: row[1] for row in status_rows}
 
-                    # Top batches
                     batch_stmt = (
                         select(Lead.batch, func.count(Lead.id), func.avg(Lead.final_score))
                         .where(Lead.batch.isnot(None))
@@ -64,18 +69,18 @@ class AnalyticsService:
                         for row in batch_rows
                     ]
 
-                    return AnalyticsOverviewResponse(
-                        total_leads=leads_count,
-                        total_runs=runs_count,
-                        avg_score=round(float(avg_score_res), 1),
-                        leads_with_email=email_count_res,
-                        status_breakdown=status_breakdown,
-                        top_batches=top_batches,
-                    )
+                return AnalyticsOverviewResponse(
+                    total_leads=leads_count,
+                    total_runs=runs_count,
+                    avg_score=round(float(avg_score_res), 1),
+                    leads_with_email=email_count_res,
+                    status_breakdown=status_breakdown,
+                    top_batches=top_batches,
+                )
             except Exception as exc:
-                logger.warning("Could not calculate analytics from DB: %s", exc)
+                logger.error("Could not calculate analytics from DB: %s", exc)
+                return cls._calc_from_files()
 
-        # File-based calculation fallback
         return cls._calc_from_files()
 
     @staticmethod
