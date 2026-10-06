@@ -7,18 +7,22 @@
   import PipelineEconomics from '$lib/components/PipelineEconomics.svelte';
   import { api } from '$lib/api';
 
-  const PUBLIC = ['/login', '/pitch'];
-  $: isPublic = PUBLIC.some(p => $page.url.pathname === p || $page.url.pathname.startsWith(p + '/'));
+  // /pitch renders standalone (no nav/footer), everything else uses the shell
+  const STANDALONE = ['/pitch'];
+  $: isStandalone = STANDALONE.some(p => $page.url.pathname === p || $page.url.pathname.startsWith(p + '/'));
 
-  // Redirect to login if not authenticated on protected pages
+  // Redirect unauthenticated users to login (skip for /login and /pitch)
+  const NO_AUTH = ['/login', '/pitch'];
+  $: isNoAuth = NO_AUTH.some(p => $page.url.pathname === p || $page.url.pathname.startsWith(p + '/'));
+
   onMount(() => {
-    if (!isPublic && !api.auth.isLoggedIn()) {
+    if (!isNoAuth && !api.auth.isLoggedIn()) {
       goto('/login');
     }
   });
 </script>
 
-{#if isPublic}
+{#if isStandalone}
   <slot />
 {:else}
   <div class="min-h-screen flex flex-col bg-surface-0">
