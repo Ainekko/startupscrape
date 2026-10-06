@@ -7,15 +7,18 @@
   import PipelineEconomics from '$lib/components/PipelineEconomics.svelte';
   import { api } from '$lib/api';
 
-  // Redirect to login if not authenticated (skip on /login itself)
+  const PUBLIC = ['/login', '/pitch'];
+  $: isPublic = PUBLIC.some(p => $page.url.pathname === p || $page.url.pathname.startsWith(p + '/'));
+
+  // Redirect to login if not authenticated on protected pages
   onMount(() => {
-    if ($page.url.pathname !== '/login' && !api.auth.isLoggedIn()) {
+    if (!isPublic && !api.auth.isLoggedIn()) {
       goto('/login');
     }
   });
 </script>
 
-{#if $page.url.pathname === '/login'}
+{#if isPublic}
   <slot />
 {:else}
   <div class="min-h-screen flex flex-col bg-surface-0">
