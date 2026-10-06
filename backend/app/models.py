@@ -184,6 +184,8 @@ class LeadOutcomeCreateRequest(BaseModel):
 class PipelineTriggerRequest(BaseModel):
     max_leads: int = 20
     max_treg_cost: float = 1.0
+    batches: Optional[list[str]] = None   # None = all target batches; e.g. ["Summer 2024","Winter 2024"]
+    sources: list[str] = ["yc"]           # ["yc"] | ["waas"] | ["yc","waas"]
 
 
 class AnalyticsOverviewResponse(BaseModel):

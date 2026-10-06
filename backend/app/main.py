@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.db import check_db_connection, get_session_context, init_db
 from app.routes import analytics, auth, leads, pipeline
-from app.services.pipeline_service import PipelineService
+from app.services.auth_service import AuthService
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,30 +32,19 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan: initialize database tables and sync backup runs into PostgreSQL on startup."""
+    """Application lifespan: verify database tables and seed default user on startup."""
     logger.info("Starting StartupScrape API server...")
     if settings.database_url:
         db_ok = await init_db()
         if db_ok:
             logger.info("StartupScrape PostgreSQL database connection and tables verified.")
-            # Ingest all historical backup runs so PostgreSQL is the complete, primary data engine
-            try:
-                async with get_session_context() as session:
-                    if session is not None:
-                        await PipelineService.sync_all_backup_runs(session)
-            except Exception as sync_exc:
-                logger.warning("Startup database sync from backup files encountered error: %s", sync_exc)
+            async with get_session_context() as session:
+                if session:
+                    await AuthService.ensure_default_user(session)
         else:
             logger.warning("Database initialization could not be completed; running with fallback storage.")
     else:
         logger.info("Running in file-only mode (DATABASE_URL not configured).")
-
-    # Expose the application's running event loop for background thread tasks
-    try:
-        import asyncio
-        app.state.loop = asyncio.get_running_loop()
-    except RuntimeError:
-        app.state.loop = None
 
     yield
 

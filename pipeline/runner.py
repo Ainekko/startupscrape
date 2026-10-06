@@ -98,17 +98,20 @@ VALID_YEARS = ["2023", "2024", "2025", "2026", "2027"]
 
 
 def run(
-    max_leads: int = 10,
+    max_leads: int = 20,
     max_treg_cost: float = TREG_MAX_RUN_COST_USD,
     sources: list[str] | None = None,
+    batches: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Execute the full FlowJoy signal pipeline.
+    batches: optional list of YC batch strings (e.g. ["Summer 2024"]); defaults to TARGET_BATCHES.
     """
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     run_id = f"run_{ts}"
     started_at = datetime.now(timezone.utc).isoformat()
     sources = sources or ["yc"]
+    active_batches = batches if batches else TARGET_BATCHES
     status = "complete"
     partial_path = DATA_DIR / f"{run_id}_partial.json"
 
@@ -119,7 +122,7 @@ def run(
     try:
         # ── Tier 0: Scrape ────────────────────────────────────────────────────
         logger.info("Tier 0: scraping active 2023-2027 B2B cohorts (%s)…", sources)
-        raw = _scrape(sources, limit=max(max_leads * 4, 30))
+        raw = _scrape(sources, limit=max(max_leads * 4, 30), batches=active_batches)
         funnel["raw"] = len(raw)
         logger.info("Tier 0: %d raw leads collected", funnel["raw"])
 
@@ -187,10 +190,11 @@ def run(
     return result
 
 
-def _scrape(sources: list[str], limit: int = 50) -> list[StartupLead]:
+def _scrape(sources: list[str], limit: int = 50, batches: list[str] | None = None) -> list[StartupLead]:
     results: list[StartupLead] = []
-    # Explicitly query 2023–2027 batches, B2B industry, is_hiring=True
-    fq = FilterQuery(batches=TARGET_BATCHES, industries=["B2B"], is_hiring=True, limit=limit)
+    active_batches = batches if batches else TARGET_BATCHES
+    # Explicitly query active batches, B2B industry, is_hiring=True
+    fq = FilterQuery(batches=active_batches, industries=["B2B"], is_hiring=True, limit=limit)
 
     def _yc():
         try:

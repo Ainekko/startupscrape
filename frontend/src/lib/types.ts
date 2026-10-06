@@ -80,6 +80,8 @@ export interface RunSummary {
 export interface PipelineTriggerRequest {
   max_leads?: number;
   max_treg_cost?: number;
+  batches?: string[] | null;  // null = all target batches
+  sources?: string[];         // default: ['yc']
 }
 
 export interface RunStatus {

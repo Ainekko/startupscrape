@@ -29,16 +29,6 @@
     } catch {}
   }
 
-  async function triggerRun() {
-    try {
-      await api.pipeline.startRun();
-      status = { status: 'running' };
-      pollStatus();
-    } catch (e: any) {
-      error = e.message;
-    }
-  }
-
   function pollStatus() {
     const iv = setInterval(async () => {
       await fetchStatus();
@@ -52,13 +42,17 @@
   onMount(() => {
     fetchRuns();
     fetchStatus();
+    // if a run was already in progress when we landed, keep polling
+    fetchStatus().then(() => {
+      if (status.status === 'running') pollStatus();
+    });
   });
 
   // Aggregate stats from actual backend data
-  $: aggScraped = runs.reduce((s, r) => s + (funnelMetrics(r.funnel || {}).scraped), 0);
+  $: aggScraped   = runs.reduce((s, r) => s + (funnelMetrics(r.funnel || {}).scraped), 0);
   $: aggQualified = runs.reduce((s, r) => s + (funnelMetrics(r.funnel || {}).qualified), 0);
-  $: aggSpend = runs.reduce((s, r) => s + totalSpend(r.spend || {}), 0);
-  $: avgYield = aggScraped > 0 ? ((aggQualified / aggScraped) * 100).toFixed(0) : '—';
+  $: aggSpend     = runs.reduce((s, r) => s + totalSpend(r.spend || {}), 0);
+  $: avgYield     = aggScraped > 0 ? ((aggQualified / aggScraped) * 100).toFixed(0) : '—';
 </script>
 
 <svelte:head>
@@ -67,33 +61,22 @@
 
 <div class="animate-fade-in">
   <!-- Header -->
-  <div class="flex items-start justify-between mb-6">
-    <div>
-      <h1 class="text-2xl font-bold text-text-primary tracking-tight">Pipeline Runs</h1>
-      <p class="text-sm text-text-secondary mt-1">Autonomous YC startup sourcing, scoring & verified enrichment</p>
-    </div>
-    <div class="flex items-center gap-3">
-      {#if status.status === 'running'}
-        <div class="flex items-center gap-2 text-sm text-[#c2410c] font-medium">
-          <span class="w-2 h-2 rounded-full bg-[#f97316] animate-pulse-slow"></span>
-          Run in progress…
-        </div>
-      {:else}
-        <button on:click={triggerRun} class="btn-primary">
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-            <path d="M2.5 2L10.5 6.5L2.5 11V2Z" fill="currentColor"/>
-          </svg>
-          Run Pipeline
-        </button>
-      {/if}
-    </div>
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-text-primary tracking-tight">Pipeline Runs</h1>
+    <p class="text-sm text-text-secondary mt-1">Autonomous YC startup sourcing, scoring &amp; verified enrichment</p>
+    {#if status.status === 'running'}
+      <div class="flex items-center gap-2 text-sm text-[#c2410c] font-medium mt-2">
+        <span class="w-2 h-2 rounded-full bg-[#f97316] animate-pulse-slow"></span>
+        Run in progress…
+      </div>
+    {/if}
   </div>
 
   {#if status.status === 'running'}
     <StatusBar />
   {/if}
 
-  <!-- Pipeline Workflow Header Bar with Real Logos -->
+  <!-- Pipeline Workflow Header Bar -->
   <div class="mb-6 flex flex-wrap items-center justify-between gap-3 text-xs font-mono bg-white border border-[#e7dfd4] px-4 py-3 rounded-2xl shadow-sm">
     <div class="flex items-center gap-2.5">
       <GrokBot size={30} theme="dark" />
@@ -101,7 +84,6 @@
     </div>
 
     <div class="flex items-center flex-wrap gap-2">
-      <!-- Step 1: Algolia Search -->
       <div class="flex items-center gap-1.5 px-2.5 py-1 bg-[#fbf9f5] rounded-lg border border-[#e5ddd0]">
         <div class="w-4 h-4 rounded overflow-hidden flex items-center justify-center flex-shrink-0">
           <img src="/flowjoy/algolia.svg" alt="Algolia" class="w-full h-full object-contain" />
@@ -114,7 +96,6 @@
 
       <span class="text-[#a8a29e] font-bold text-sm">→</span>
 
-      <!-- Step 2: JEV ICP Scoring -->
       <div class="flex items-center gap-1.5 px-2.5 py-1 bg-[#fbf9f5] rounded-lg border border-purple-200">
         <div class="w-4 h-4 rounded-xs overflow-hidden flex-shrink-0 border border-purple-100">
           <img src="/flowjoy/typesafe-ai-200x200.jfif" alt="JEV" class="w-full h-full object-cover" />
@@ -124,7 +105,6 @@
 
       <span class="text-[#a8a29e] font-bold text-sm">→</span>
 
-      <!-- Step 3: Treg.to Email Enrichment -->
       <div class="flex items-center gap-1.5 px-2.5 py-1 bg-[#fbf9f5] rounded-lg border border-emerald-200">
         <div class="w-4 h-4 rounded overflow-hidden flex items-center justify-center flex-shrink-0">
           <img src="/flowjoy/treg.svg" alt="Treg.to" class="w-full h-full object-contain" />
@@ -134,7 +114,7 @@
     </div>
   </div>
 
-  <!-- Summary stats — computed from real backend data -->
+  <!-- Summary stats -->
   {#if runs.length > 0}
     <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
       <div class="card px-4 py-3">
@@ -181,8 +161,7 @@
         <span class="text-[#c2410c] text-lg">⚡</span>
       </div>
       <p class="text-text-primary font-semibold mb-1">No runs yet</p>
-      <p class="text-text-secondary text-sm mb-5">Trigger your first pipeline run to source and score YC leads.</p>
-      <button on:click={triggerRun} class="btn-primary mx-auto">Run Pipeline</button>
+      <p class="text-text-secondary text-sm">Trigger your first pipeline run using the <strong>New Run</strong> button above.</p>
     </div>
   {:else}
     <div class="space-y-3 animate-slide-up">

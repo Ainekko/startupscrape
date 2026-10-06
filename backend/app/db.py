@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 from urllib.parse import parse_qs, urlparse, urlunparse
 
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -68,7 +69,11 @@ def get_engine() -> AsyncEngine | None:
             logger.warning("DATABASE_URL not set. Running without PostgreSQL database connection.")
             return None
 
-        connect_args = {}
+        # Neon pooler (PgBouncer) requires prepared statement caching disabled
+        connect_args: dict[str, Any] = {
+            "prepared_statement_cache_size": 0,
+            "statement_cache_size": 0,
+        }
         if requires_ssl:
             connect_args["ssl"] = "require"
 
@@ -76,12 +81,10 @@ def get_engine() -> AsyncEngine | None:
         _engine = create_async_engine(
             clean_url,
             echo=settings.database_echo,
-            pool_pre_ping=True,
-            pool_size=5,
-            max_overflow=10,
+            poolclass=NullPool,
             connect_args=connect_args,
         )
-        logger.info("StartupScrape async database engine initialized")
+        logger.info("StartupScrape async database engine initialized (NullPool + Neon PgBouncer safe)")
 
     return _engine
 
@@ -131,7 +134,6 @@ async def get_session_context():
     async with factory() as session:
         try:
             yield session
-            await session.commit()
         except Exception as exc:
             logger.error("Database context session error: %s", exc)
             await session.rollback()
