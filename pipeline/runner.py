@@ -40,8 +40,14 @@ from .enricher import enrich_batch
 
 logger = logging.getLogger(__name__)
 
-DATA_DIR = ROOT / "data"
-DATA_DIR.mkdir(exist_ok=True)
+DATA_DIR_ENV = os.getenv("DATA_DIR")
+if DATA_DIR_ENV:
+    DATA_DIR = Path(DATA_DIR_ENV)
+elif Path("/opt/render").exists():
+    DATA_DIR = Path("/tmp/data")
+else:
+    DATA_DIR = ROOT / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── scoring weights ───────────────────────────────────────────────────────────
 SCORE_FUNDING = 10       # Seed or Series A (2023–2027 batches)
@@ -127,7 +133,11 @@ def run(
         to_enrich = filtered[:pool_size]
         logger.info("Enriching %d companies with founder/LinkedIn profiles…", len(to_enrich))
         enricher = YCEnricher()
-        enriched_leads = enricher.enrich_leads(to_enrich, max_workers=5)
+        try:
+            enriched_leads = enricher.enrich_leads(to_enrich, max_workers=3)
+        finally:
+            if hasattr(enricher, "session") and enricher.session:
+                enricher.session.close()
 
         # ── Tier 1: Fast score ────────────────────────────────────────────────
         logger.info("Tier 1: scoring %d companies…", len(enriched_leads))
@@ -380,7 +390,7 @@ def _tier1_score(leads: list[StartupLead]) -> list[dict]:
         }
 
     scored = []
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    with ThreadPoolExecutor(max_workers=3) as pool:
         futures = {pool.submit(_score_one, lead): lead for lead in leads}
         for fut in as_completed(futures):
             try:
@@ -442,7 +452,7 @@ def _tier3_score(leads: list[dict]) -> list[dict]:
         return lead
 
     result = []
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    with ThreadPoolExecutor(max_workers=3) as pool:
         futures = {pool.submit(_score_one, lead): lead for lead in leads}
         for fut in as_completed(futures):
             try:

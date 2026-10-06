@@ -33,7 +33,7 @@ _TREG_BASE = "https://treg.to"
 _EMAIL_ENDPOINT = "treg.people.email.find"
 _PER_CALL_CAP_USD = float(os.getenv("TREG_PER_CALL_CAP_USD", "0.05"))
 _BATCH_SIZE = 10
-_MAX_WORKERS = 6
+_MAX_WORKERS = 3
 
 
 def _extract_domain(website: str | None) -> str | None:
@@ -80,39 +80,39 @@ def find_email(full_name: str, company_name: str, domain: str | None = None) -> 
 
     url = f"{_TREG_BASE}/call/{_EMAIL_ENDPOINT}"
     try:
-        r = requests.post(url, json=payload, headers=headers, timeout=20)
-        call_id = r.headers.get("X-Treg-Call-Id", "")
-        cost_micro = int(r.headers.get("X-Treg-Cost-Micro", "0"))
-        cost_usd = cost_micro / 1_000_000
-        served_by = r.headers.get("X-Treg-Served-By", "")
+        with requests.post(url, json=payload, headers=headers, timeout=20) as r:
+            call_id = r.headers.get("X-Treg-Call-Id", "")
+            cost_micro = int(r.headers.get("X-Treg-Cost-Micro", "0"))
+            cost_usd = cost_micro / 1_000_000
+            served_by = r.headers.get("X-Treg-Served-By", "")
 
-        if r.status_code == 402:
-            detail = r.json() if r.content else {}
-            logger.warning(
-                "treg 402 for %s @ %s — %s (call_id=%s)",
-                full_name, company_name, detail.get("error", "budget limit"), call_id
-            )
-            return {"email": None, "error": "budget_limit", "cost_usd": 0.0, "call_id": call_id}
+            if r.status_code == 402:
+                detail = r.json() if r.content else {}
+                logger.warning(
+                    "treg 402 for %s @ %s — %s (call_id=%s)",
+                    full_name, company_name, detail.get("error", "budget limit"), call_id
+                )
+                return {"email": None, "error": "budget_limit", "cost_usd": 0.0, "call_id": call_id}
 
-        if r.status_code == 404:
-            return {"email": None, "error": "miss", "cost_usd": cost_usd, "call_id": call_id, "provider": served_by}
+            if r.status_code == 404:
+                return {"email": None, "error": "miss", "cost_usd": cost_usd, "call_id": call_id, "provider": served_by}
 
-        if r.status_code != 200:
-            logger.warning("treg call error %d: %s", r.status_code, r.text[:200])
-            return {"email": None, "error": f"http_{r.status_code}", "cost_usd": cost_usd, "call_id": call_id}
+            if r.status_code != 200:
+                logger.warning("treg call error %d: %s", r.status_code, r.text[:200])
+                return {"email": None, "error": f"http_{r.status_code}", "cost_usd": cost_usd, "call_id": call_id}
 
-        data = r.json()
-        email = data.get("email") or data.get("output", {}).get("email")
-        verified = data.get("output", {}).get("verified", False) or data.get("verified", False)
+            data = r.json()
+            email = data.get("email") or data.get("output", {}).get("email")
+            verified = data.get("output", {}).get("verified", False) or data.get("verified", False)
 
-        return {
-            "email": email,
-            "verified": bool(verified),
-            "provider": served_by or data.get("_treg", {}).get("served_by", ""),
-            "cost_usd": cost_usd,
-            "call_id": call_id,
-            "raw": data,
-        }
+            return {
+                "email": email,
+                "verified": bool(verified),
+                "provider": served_by or data.get("_treg", {}).get("served_by", ""),
+                "cost_usd": cost_usd,
+                "call_id": call_id,
+                "raw": data,
+            }
 
     except requests.exceptions.Timeout:
         logger.warning("Timeout finding email for %s @ %s", full_name, company_name)

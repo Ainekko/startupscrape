@@ -29,8 +29,16 @@ logger = logging.getLogger(__name__)
 # Paths
 BACKEND_DIR = Path(__file__).resolve().parents[2]   # backend/
 ROOT        = BACKEND_DIR.parent                    # startupscrape/
-DATA_DIR    = ROOT / "data"
-DATA_DIR.mkdir(exist_ok=True)
+import os
+
+DATA_DIR_ENV = os.getenv("DATA_DIR")
+if DATA_DIR_ENV:
+    DATA_DIR = Path(DATA_DIR_ENV)
+elif Path("/opt/render").exists():
+    DATA_DIR = Path("/tmp/data")
+else:
+    DATA_DIR = ROOT / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # Ensure root is importable for pipeline package
 if str(ROOT) not in sys.path:
@@ -459,15 +467,26 @@ class PipelineService:
     @classmethod
     async def sync_all_backup_runs(cls, session: AsyncSession) -> int:
         """
-        Sync all backup JSON run files from data/ into PostgreSQL.
+        Sync all backup JSON run files from data directories into PostgreSQL.
         Ensures PostgreSQL is the complete, primary data engine with all runs and leads.
         Safe to call on startup — runs idempotently without duplicating or overwriting.
         """
         synced_count = 0
-        candidates = sorted(DATA_DIR.glob("run_*.json"))
+        search_dirs = [DATA_DIR]
+        legacy_dir = ROOT / "data"
+        if legacy_dir != DATA_DIR and legacy_dir.exists():
+            search_dirs.append(legacy_dir)
+
+        seen_names = set()
+        candidates = []
+        for d in search_dirs:
+            for p in d.glob("run_*.json"):
+                if p.name not in seen_names and "_partial" not in p.name:
+                    seen_names.add(p.name)
+                    candidates.append(p)
+        candidates.sort()
+
         for p in candidates:
-            if "_partial" in p.name:
-                continue
             try:
                 data = json.loads(p.read_text(encoding="utf-8"))
                 run_id = data.get("run_id", p.stem)
@@ -500,9 +519,21 @@ class PipelineService:
     @staticmethod
     def _list_runs_from_files() -> list[dict]:
         runs = []
-        for p in sorted(DATA_DIR.glob("run_*.json"), reverse=True):
-            if "_partial" in p.name:
-                continue
+        search_dirs = [DATA_DIR]
+        legacy_dir = ROOT / "data"
+        if legacy_dir != DATA_DIR and legacy_dir.exists():
+            search_dirs.append(legacy_dir)
+
+        seen_names = set()
+        candidates = []
+        for d in search_dirs:
+            for p in d.glob("run_*.json"):
+                if p.name not in seen_names and "_partial" not in p.name:
+                    seen_names.add(p.name)
+                    candidates.append(p)
+        candidates.sort(reverse=True)
+
+        for p in candidates:
             try:
                 data = json.loads(p.read_text(encoding="utf-8"))
                 funnel = format_funnel(data.get("funnel", {}))
@@ -523,7 +554,15 @@ class PipelineService:
 
     @staticmethod
     def _load_run_from_file(run_id: str) -> dict | None:
-        candidates = list(DATA_DIR.glob(f"{run_id}*.json"))
+        search_dirs = [DATA_DIR]
+        legacy_dir = ROOT / "data"
+        if legacy_dir != DATA_DIR and legacy_dir.exists():
+            search_dirs.append(legacy_dir)
+
+        candidates = []
+        for d in search_dirs:
+            candidates.extend(d.glob(f"{run_id}*.json"))
+
         if not candidates:
             return None
         path = sorted(candidates)[-1]
