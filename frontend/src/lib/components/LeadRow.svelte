@@ -78,7 +78,7 @@
     {#if email}
       <div class="flex items-center gap-1.5">
         <div class="w-3.5 h-3.5 rounded flex items-center justify-center overflow-hidden flex-shrink-0">
-          <img src="/flowjoy/treg.svg" alt="Treg.to" class="w-full h-full object-contain" />
+          <img src="/flowjoy/treg-logo.png" alt="Treg.to" class="w-full h-full object-contain" />
         </div>
         <a
           href="mailto:{email}"
@@ -237,7 +237,7 @@
               <div class="mt-3 flex items-center justify-between gap-2 p-2.5 bg-[#faf8f5] border border-[#e5ddd0] rounded-xl shadow-2xs">
                 <div class="flex items-center gap-2 min-w-0">
                   <div class="w-4 h-4 rounded overflow-hidden flex-shrink-0">
-                    <img src="/flowjoy/treg.svg" alt="Treg.to" class="w-full h-full object-contain" />
+                    <img src="/flowjoy/treg-logo.png" alt="Treg.to" class="w-full h-full object-contain" />
                   </div>
                   <a
                     href="mailto:{email}"

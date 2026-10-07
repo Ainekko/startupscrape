@@ -5,6 +5,7 @@
   import type { Lead } from '$lib/types';
   import LeadRow from '$lib/components/LeadRow.svelte';
   import PipelineFlowHeader from '$lib/components/PipelineFlowHeader.svelte';
+  import NotLoggedIn from '$lib/components/NotLoggedIn.svelte';
 
   let leads: Lead[] = [];
   let totalCount = 0;
@@ -117,9 +118,7 @@
       {/each}
     </div>
   {:else if error}
-    <div class="card p-12 text-center">
-      <p class="text-red-700 text-sm">{error}</p>
-    </div>
+    <NotLoggedIn {error} />
   {:else}
     <div class="card overflow-hidden">
       <div class="overflow-x-auto">

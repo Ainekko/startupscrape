@@ -21,7 +21,7 @@
     <span class="text-[#a8a29e]">→</span>
 
     <div class="flex items-center gap-1.5">
-      <img src="/flowjoy/treg.svg" alt="Treg.to" class="w-3.5 h-3.5 object-contain" />
+      <img src="/flowjoy/treg-logo.png" alt="Treg.to" class="w-3.5 h-3.5 object-contain" />
       <span class="text-[#059669] font-semibold">Treg.to Email Enrichment</span>
     </div>
   </div>

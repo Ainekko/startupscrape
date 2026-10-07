@@ -7,6 +7,7 @@
   import RunCard from '$lib/components/RunCard.svelte';
   import StatusBar from '$lib/components/StatusBar.svelte';
   import GrokBot from '$lib/components/GrokBot.svelte';
+  import NotLoggedIn from '$lib/components/NotLoggedIn.svelte';
 
   let runs: RunSummary[] = [];
   let status: RunStatus = { status: 'idle' };
@@ -107,7 +108,7 @@
 
       <div class="flex items-center gap-1.5 px-2.5 py-1 bg-[#fbf9f5] rounded-lg border border-emerald-200">
         <div class="w-4 h-4 rounded overflow-hidden flex items-center justify-center flex-shrink-0">
-          <img src="/flowjoy/treg.svg" alt="Treg.to" class="w-full h-full object-contain" />
+          <img src="/flowjoy/treg-logo.png" alt="Treg.to" class="w-full h-full object-contain" />
         </div>
         <span class="font-bold text-[#059669] text-[11px]">Treg.to Email Enrichment</span>
       </div>
@@ -151,10 +152,7 @@
       {/each}
     </div>
   {:else if error}
-    <div class="card p-8 text-center">
-      <p class="text-red-700 text-sm mb-1">Could not reach the backend.</p>
-      <p class="text-text-muted text-xs font-mono">{error}</p>
-    </div>
+    <NotLoggedIn {error} />
   {:else if runs.length === 0}
     <div class="card p-12 text-center">
       <div class="w-12 h-12 rounded-full bg-orange-50 border border-orange-200 flex items-center justify-center mx-auto mb-4">

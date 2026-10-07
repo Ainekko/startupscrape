@@ -102,9 +102,9 @@ async function request<T>(
     try { data = await res.json(); } catch { /* empty body */ }
 
     if (!res.ok) {
-      // On 401, clear stale token
       if (res.status === 401) {
         clearToken();
+        throw new ApiError('not_authenticated', 401, data);
       }
       const msg =
         (data as any)?.detail ||

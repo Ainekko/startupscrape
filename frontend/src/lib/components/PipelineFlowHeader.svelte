@@ -63,7 +63,7 @@
       <!-- Step 3: Treg.to Email Enrichment -->
       <div class="flex items-center gap-1.5 px-2.5 py-1 bg-white rounded-lg border border-emerald-200 shadow-xs">
         <div class="w-4 h-4 rounded flex items-center justify-center overflow-hidden flex-shrink-0">
-          <img src="/flowjoy/treg.svg" alt="Treg.to" class="w-full h-full object-contain" />
+          <img src="/flowjoy/treg-logo.png" alt="Treg.to" class="w-full h-full object-contain" />
         </div>
         <span class="font-bold text-[#059669] text-[11px]">Treg.to Email Enrichment</span>
       </div>
