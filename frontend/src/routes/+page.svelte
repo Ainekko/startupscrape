@@ -57,14 +57,22 @@
 </script>
 
 <svelte:head>
-  <title>Verve — Autonomous YC Lead Pipeline</title>
+  <title>JEV Go-to-Market Pipeline | Verve</title>
+  <meta
+    name="description"
+    content="JEV go-to-market pipeline for sourcing, scoring, and enriching YC startup leads with autonomous outreach workflows."
+  />
+  <meta
+    name="keywords"
+    content="JEV, go-to-market, YC startup pipeline, lead sourcing, ICP scoring, startup intelligence"
+  />
 </svelte:head>
 
 <div class="animate-fade-in">
   <!-- Header -->
   <div class="mb-6">
-    <h1 class="text-2xl font-bold text-text-primary tracking-tight">Pipeline Runs</h1>
-    <p class="text-sm text-text-secondary mt-1">Autonomous YC startup sourcing, scoring &amp; verified enrichment</p>
+    <h1 class="text-2xl font-bold text-text-primary tracking-tight">JEV Go-to-Market Pipeline</h1>
+    <h2 class="text-sm text-text-secondary mt-1">Autonomous YC startup sourcing, scoring, and verified enrichment for go-to-market teams</h2>
     {#if status.status === 'running'}
       <div class="flex items-center gap-2 text-sm text-[#c2410c] font-medium mt-2">
         <span class="w-2 h-2 rounded-full bg-[#f97316] animate-pulse-slow"></span>
