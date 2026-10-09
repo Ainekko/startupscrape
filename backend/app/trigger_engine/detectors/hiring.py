@@ -59,34 +59,41 @@ class GTMHiringDetector(BaseDetector):
                             )
                         )
 
-        # 2. Query live LinkedIn jobs via treg if no signals found or to supplement
+        # 2. Query live LinkedIn jobs via LinkedInSpyService (anyapi + SERP fallback)
         if not signals:
             try:
-                jobs = await treg.search_gtm_jobs(company_name, "sales")
-                if not jobs:
-                    jobs = await treg.search_gtm_jobs(company_name, "revops")
+                from app.trigger_engine.linkedin_spy import LinkedInSpyService
+                spy_service = LinkedInSpyService(treg_client=treg)
+                spy_result = await spy_service.spy(
+                    company_name=company_name,
+                    domain=account.get("website"),
+                    include_people=False,
+                )
 
-                for job in jobs[:3]:
-                    title = str(job.get("title", ""))
-                    title_lower = title.lower()
-
-                    signal_type = "gtm_hiring"
-                    if any(kw in title_lower for kw in GTM_KEYWORDS["leadership"]):
-                        signal_type = "gtm_leadership"
-
+                for job in spy_result.jobs_found[:4]:
+                    signal_type = "gtm_leadership" if job.category == "gtm_leadership" else "gtm_hiring"
                     signals.append(
                         DetectedSignal(
                             trigger_type=signal_type,
-                            headline=f"Hiring {title} at {company_name}",
-                            snippet=f"Active job posting detected on LinkedIn: {title} in {job.get('location', 'Remote')}",
-                            source=job.get("source", "treg:anyapi.linkedin.search.jobs"),
-                            source_url=job.get("url"),
+                            headline=f"Hiring {job.title} at {company_name}",
+                            snippet=f"Active job posting detected on LinkedIn: {job.title} in {job.location}",
+                            source=job.source,
+                            source_url=job.url,
                             confidence=0.92,
-                            raw_metadata=job,
+                            raw_metadata={
+                                "title": job.title,
+                                "company": job.company,
+                                "location": job.location,
+                                "url": job.url,
+                                "category": job.category,
+                                "source": job.source,
+                                "posted_utc": job.posted_utc,
+                            },
                         )
                     )
             except Exception as exc:
                 logger.warning("Error scanning jobs for %s: %s", company_name, exc)
 
         return signals
+
 

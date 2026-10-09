@@ -230,3 +230,42 @@ class TriggerStatsResponse(BaseModel):
     avg_urgency: float
     total_spend_usd: float
 
+
+class LinkedInJobItem(BaseModel):
+    title: str
+    company: str
+    location: Optional[str] = "Remote"
+    url: Optional[str] = None
+    category: str = "other"  # gtm_sales, gtm_revops, gtm_leadership, engineering, other
+    source: str = "anyapi.linkedin.search.jobs"
+    posted_utc: Optional[str] = None
+
+
+class LinkedInPersonItem(BaseModel):
+    name: str
+    title: str
+    url: str
+    role_type: str = "other"  # founder, sales_leader, executive, other
+
+
+class LinkedInSpyRequest(BaseModel):
+    company_name: str
+    domain: Optional[str] = None
+    roles: Optional[list[str]] = None
+    include_people: bool = True
+
+
+class LinkedInSpyResponse(BaseModel):
+    company_name: str
+    clean_name: str
+    domain: Optional[str] = None
+    jobs_found: list[LinkedInJobItem] = []
+    people_found: list[LinkedInPersonItem] = []
+    urgency_score: int = 5
+    timing_hook: str
+    angle: str
+    cost_usd: float
+    sources_used: list[str] = []
+    detected_at: datetime = PyField(default_factory=lambda: datetime.now(timezone.utc))
+
+

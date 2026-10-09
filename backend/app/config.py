@@ -3,8 +3,17 @@ app/config.py — Configuration and Settings via Pydantic
 """
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Optional
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Always load .env from project root and backend dir
+_backend_dir = Path(__file__).resolve().parent.parent
+_root_dir = _backend_dir.parent
+load_dotenv(_root_dir / ".env")
+load_dotenv(_backend_dir / ".env")
+
 
 
 class Settings(BaseSettings):
