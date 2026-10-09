@@ -18,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.db import check_db_connection, get_session_context, init_db
 from app.routes import analytics, auth, leads, pipeline
+from app.trigger_engine.routes import router as triggers_router
 from app.services.auth_service import AuthService
 
 logging.basicConfig(
@@ -72,6 +73,7 @@ app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(pipeline.router, prefix=settings.api_prefix)
 app.include_router(leads.router, prefix=settings.api_prefix)
 app.include_router(analytics.router, prefix=settings.api_prefix)
+app.include_router(triggers_router, prefix=settings.api_prefix)
 
 
 @app.get("/health", tags=["meta"])

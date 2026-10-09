@@ -155,10 +155,11 @@ async def init_db() -> bool:
     try:
         # Import models so they are registered in SQLModel.metadata
         from app import models  # noqa: F401
+        from app.trigger_engine import models as trigger_models  # noqa: F401
 
         async with engine.begin() as conn:
             await conn.run_sync(SQLModel.metadata.create_all)
-        logger.info("StartupScrape database tables verified/created successfully.")
+        logger.info("StartupScrape and Trigger Engine database tables verified/created successfully.")
         return True
     except Exception as exc:
         logger.error("Failed to initialize database tables: %s", exc)
