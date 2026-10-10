@@ -17,6 +17,7 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import desc, or_
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -30,8 +31,10 @@ from app.trigger_engine.models import (
     LinkedInIntelBatchResponse,
     LinkedInIntelReport,
     LinkedInIntelRequest,
+    LinkedInIntelSnapshot,
     LinkedInSpyRequest,
     LinkedInSpyResponse,
+    OutreachBrief,
     OutreachBriefResponse,
     TriggerEventResponse,
     TriggerRunResponse,
@@ -464,6 +467,74 @@ async def list_upstream_verve_leads(
         query = select(VerveLead).order_by(VerveLead.final_score.desc()).limit(limit)
         result = await sess.execute(query)
         db_leads = list(result.scalars().all())
+        if not db_leads:
+            return
+
+        lead_ids = [str(l.id) for l in db_leads]
+        company_names = [l.company_name for l in db_leads if l.company_name]
+
+        # Fetch latest LinkedIn Intel Snapshots
+        latest_intel_by_id: dict[str, Any] = {}
+        latest_intel_by_name: dict[str, Any] = {}
+        try:
+            snap_query = select(LinkedInIntelSnapshot).where(
+                or_(
+                    LinkedInIntelSnapshot.lead_id.in_(lead_ids),
+                    LinkedInIntelSnapshot.company_name.in_(company_names),
+                )
+            ).order_by(desc(LinkedInIntelSnapshot.created_at))
+            snap_rows = list((await sess.execute(snap_query)).scalars().all())
+            for s in snap_rows:
+                rep_data = None
+                try:
+                    rep_data = json.loads(s.report_json)
+                except Exception:
+                    rep_data = {
+                        "summary": f"{s.company_name}: {s.signals_count} timing signals",
+                        "urgency_score": 8,
+                        "signals_count": s.signals_count,
+                        "posts_count": s.posts_count,
+                        "comments_count": s.comments_count,
+                    }
+                if s.lead_id not in latest_intel_by_id:
+                    latest_intel_by_id[s.lead_id] = rep_data
+                c_key = s.company_name.lower().strip()
+                if c_key not in latest_intel_by_name:
+                    latest_intel_by_name[c_key] = rep_data
+        except Exception as exc:
+            logger.warning("Could not prefetch intel snapshots: %s", exc)
+
+        # Fetch latest Outreach Briefs
+        latest_brief_by_id: dict[str, Any] = {}
+        latest_brief_by_name: dict[str, Any] = {}
+        try:
+            brief_query = select(OutreachBrief).where(
+                or_(
+                    OutreachBrief.lead_id.in_(lead_ids),
+                    OutreachBrief.company_name.in_(company_names),
+                )
+            ).order_by(desc(OutreachBrief.created_at))
+            brief_rows = list((await sess.execute(brief_query)).scalars().all())
+            for b in brief_rows:
+                b_dict = {
+                    "id": b.id,
+                    "angle": b.angle,
+                    "urgency_score": b.urgency_score,
+                    "why_now_hook": b.why_now_hook,
+                    "email_subject": b.email_subject,
+                    "email_body": b.email_body,
+                    "linkedin_note": b.linkedin_note,
+                    "slack_preview": b.slack_preview,
+                    "status": b.status,
+                }
+                if b.lead_id not in latest_brief_by_id:
+                    latest_brief_by_id[b.lead_id] = b_dict
+                c_key = b.company_name.lower().strip()
+                if c_key not in latest_brief_by_name:
+                    latest_brief_by_name[c_key] = b_dict
+        except Exception as exc:
+            logger.warning("Could not prefetch outreach briefs: %s", exc)
+
         for l in db_leads:
             signals = []
             if getattr(l, "signals_json", None):
@@ -478,6 +549,11 @@ async def list_upstream_verve_leads(
                 except Exception:
                     pass
             first_f = founders[0] if founders else {}
+            lead_id_str = str(l.id)
+            c_key = (l.company_name or "").lower().strip()
+            lead_intel = latest_intel_by_id.get(lead_id_str) or latest_intel_by_name.get(c_key)
+            lead_brief = latest_brief_by_id.get(lead_id_str) or latest_brief_by_name.get(c_key)
+
             leads_out.append({
                 "id": str(l.id),
                 "company_name": l.company_name,
@@ -497,6 +573,8 @@ async def list_upstream_verve_leads(
                 "outreach_status": getattr(l, "outreach_status", "new"),
                 "company_linkedin_url": l.linkedin_url,
                 "founders": founders if isinstance(founders, list) else [],
+                "intel": lead_intel,
+                "brief": lead_brief,
             })
 
     if session is not None:
