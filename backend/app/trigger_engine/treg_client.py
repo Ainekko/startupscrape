@@ -29,38 +29,153 @@ class TregClient:
         token: Optional[str] = None,
         base_url: str = _DEFAULT_BASE_URL,
         per_call_cap: float = 0.05,
+        transport: Optional[httpx.AsyncBaseTransport] = None,
     ):
         self.token = (token or os.getenv("TREG_TOKEN", "")).strip()
         self.base_url = base_url.rstrip("/")
         self.per_call_cap = per_call_cap
         self.total_cost_usd = 0.0
+        self.calls_made = 0
+        # Injectable transport (httpx.MockTransport in tests)
+        self._transport = transport
 
-    def _headers(self, max_cost: Optional[float] = None) -> dict[str, str]:
+    def _headers(self, max_cost: Optional[float] = None, with_body: bool = True) -> dict[str, str]:
         cap = max_cost if max_cost is not None else self.per_call_cap
-        headers = {
-            "Content-Type": "application/json",
-            "X-Treg-Route-Max-Cost": f"{cap:.4f}",
-        }
+        headers = {"X-Treg-Route-Max-Cost": f"{cap:.4f}"}
+        if with_body:
+            headers["Content-Type"] = "application/json"
         if self.token:
             headers["X-Treg-Token"] = self.token
         return headers
 
-    def _track_cost(self, response_json: dict[str, Any], headers: Any) -> float:
-        cost = 0.0
-        if "costUsd" in response_json:
-            cost = float(response_json.get("costUsd") or 0.0)
-        elif "cost_usd" in response_json:
-            cost = float(response_json.get("cost_usd") or 0.0)
-        elif "_treg" in response_json and isinstance(response_json["_treg"], dict):
-            cost = float(response_json["_treg"].get("cost_usd", 0.0))
-        elif hasattr(headers, "get") and headers.get("x-treg-cost-usd"):
-            try:
-                cost = float(headers.get("x-treg-cost-usd", 0.0))
-            except (ValueError, TypeError):
-                cost = 0.0
+    @staticmethod
+    def _extract_cost(response_json: Any, headers: Any) -> float:
+        """
+        Real charge is the X-Treg-Cost-Micro response header (integer micro-USD).
+        Falls back to legacy header / body fields when the header is absent.
+        """
+        if hasattr(headers, "get"):
+            micro = headers.get("x-treg-cost-micro")
+            if micro not in (None, ""):
+                try:
+                    return int(micro) / 1_000_000
+                except (ValueError, TypeError):
+                    pass
+            legacy = headers.get("x-treg-cost-usd")
+            if legacy not in (None, ""):
+                try:
+                    return float(legacy)
+                except (ValueError, TypeError):
+                    pass
 
+        if isinstance(response_json, dict):
+            treg_meta = response_json.get("_treg")
+            if isinstance(treg_meta, dict):
+                if treg_meta.get("charged_micro") is not None:
+                    try:
+                        return int(treg_meta["charged_micro"]) / 1_000_000
+                    except (ValueError, TypeError):
+                        pass
+                if treg_meta.get("cost_usd") is not None:
+                    try:
+                        return float(treg_meta["cost_usd"])
+                    except (ValueError, TypeError):
+                        pass
+            for key in ("costUsd", "cost_usd"):
+                if response_json.get(key) is not None:
+                    try:
+                        return float(response_json[key])
+                    except (ValueError, TypeError):
+                        pass
+        return 0.0
+
+    def _track_cost(self, response_json: Any, headers: Any) -> float:
+        cost = self._extract_cost(response_json, headers)
         self.total_cost_usd += cost
         return cost
+
+    async def call(
+        self,
+        endpoint_id: str,
+        *,
+        method: str = "POST",
+        json: Optional[dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
+        max_cost: Optional[float] = None,
+        timeout: float = 20.0,
+    ) -> dict[str, Any]:
+        """
+        Call any treg catalog endpoint: {method} https://treg.to/call/{endpoint_id}
+
+        - POST endpoints take a JSON body (`json`).
+        - Strict-query GET endpoints (e.g. HarvestAPI, Fetchin) take only `params`, no body.
+
+        Returns: {success, data, cost_usd, status_code, call_id, served_by, error?, pending?}
+        """
+        method = method.upper()
+        url = f"{self.base_url}/call/{endpoint_id}"
+        has_body = method != "GET" and json is not None
+        headers = self._headers(max_cost=max_cost, with_body=has_body)
+        clean_params = {k: v for k, v in (params or {}).items() if v is not None} or None
+
+        self.calls_made += 1
+        try:
+            client_kwargs: dict[str, Any] = {"timeout": timeout}
+            if self._transport is not None:
+                client_kwargs["transport"] = self._transport
+            async with httpx.AsyncClient(**client_kwargs) as client:
+                res = await client.request(
+                    method,
+                    url,
+                    headers=headers,
+                    params=clean_params,
+                    json=json if has_body else None,
+                )
+
+            call_id = res.headers.get("x-treg-call-id")
+            served_by = res.headers.get("x-treg-served-by")
+
+            if res.status_code == 200:
+                try:
+                    data = res.json()
+                except ValueError:
+                    data = {"text": res.text}
+                cost = self._track_cost(data, res.headers)
+                logger.debug("treg call %s succeeded (cost=$%.6f, call_id=%s)", endpoint_id, cost, call_id)
+                return {
+                    "success": True,
+                    "data": data,
+                    "cost_usd": cost,
+                    "status_code": 200,
+                    "call_id": call_id,
+                    "served_by": served_by,
+                }
+
+            if res.status_code == 202:
+                # Routed async child still running — do NOT retry (it may still charge).
+                logger.info("treg call %s pending (202), call_id=%s", endpoint_id, call_id)
+                return {
+                    "success": False,
+                    "pending": True,
+                    "error": "pending",
+                    "status_code": 202,
+                    "cost_usd": 0.0,
+                    "call_id": call_id,
+                    "served_by": served_by,
+                }
+
+            logger.warning("treg call %s returned %d: %s", endpoint_id, res.status_code, res.text[:200])
+            return {
+                "success": False,
+                "error": res.text[:500],
+                "status_code": res.status_code,
+                "cost_usd": 0.0,
+                "call_id": call_id,
+                "served_by": served_by,
+            }
+        except Exception as exc:
+            logger.error("treg call %s failed with exception: %s", endpoint_id, exc)
+            return {"success": False, "error": str(exc), "status_code": None, "cost_usd": 0.0}
 
     async def call_endpoint(
         self,
@@ -70,25 +185,15 @@ class TregClient:
         timeout: float = 15.0,
     ) -> dict[str, Any]:
         """
-        Generic caller for any treg catalog endpoint: POST https://treg.to/call/{endpoint_id}
+        Backward-compatible caller: POST https://treg.to/call/{endpoint_id} with a JSON body.
         """
-        url = f"{self.base_url}/call/{endpoint_id}"
-        headers = self._headers(max_cost=max_cost)
-
-        try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                res = await client.post(url, headers=headers, json=payload)
-                if res.status_code == 200:
-                    data = res.json()
-                    cost = self._track_cost(data, res.headers)
-                    logger.debug("treg call %s succeeded (cost=$%.6f)", endpoint_id, cost)
-                    return {"success": True, "data": data, "cost_usd": cost}
-                else:
-                    logger.warning("treg call %s returned %d: %s", endpoint_id, res.status_code, res.text[:200])
-                    return {"success": False, "error": res.text, "status_code": res.status_code, "cost_usd": 0.0}
-        except Exception as exc:
-            logger.error("treg call %s failed with exception: %s", endpoint_id, exc)
-            return {"success": False, "error": str(exc), "cost_usd": 0.0}
+        return await self.call(
+            endpoint_id,
+            method="POST",
+            json=payload,
+            max_cost=max_cost,
+            timeout=timeout,
+        )
 
     # ── High-Level Signal Search Methods ─────────────────────────────────────
 

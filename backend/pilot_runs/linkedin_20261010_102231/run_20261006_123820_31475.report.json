@@ -1,0 +1,134 @@
+{
+  "lead_id": "run_20261006_123820_31475",
+  "company_name": "Ardent",
+  "company_linkedin_url": "https://www.linkedin.com/company/ardent-db",
+  "founders": [
+    {
+      "name": "Vikram Chennai",
+      "profile_url": "https://www.linkedin.com/in/vikram-chennai",
+      "posts_found": 3,
+      "comments_made_found": 0,
+      "last_active_at": "2026-08-07T17:40:57.370000+00:00",
+      "top_topics": [
+        "sazabi",
+        "sandboxes",
+        "postgres"
+      ]
+    }
+  ],
+  "company_posts": [
+    {
+      "urn": "urn:li:share:7491547851223650304",
+      "url": "https://www.linkedin.com/posts/davidyzeng_ardent-yc-x26-has-been-a-gamechanger-for-activity-7491547852179992577-Mmxd",
+      "text": "Ardent (YC X26) has been a gamechanger for us developing with AI. \n\nHave you ever wanted a coding or testing agent to go through your product and figure its own way out, with real data, without messing everything up? \n\nThis company does database branching so that your coding agents and testing agents can work on real or \"real\" data, do whatever it needs to, and conveniently throws it all away. \n\nThe way it works under the hood is inspired by Neon DB. The short of it is that it has its master copy of your database and tracks only the diffs. Then when you're done with the branch, it throws away all the diffs and it's like nothing ever happened! \n\nWhat other tools are you using to increase your coding leverage?",
+      "posted_at": "2026-08-07T18:24:00.858000+00:00",
+      "author_name": "David Zeng",
+      "author_headline": "Co-Founder @ Beacons | AI for 10M+ creators | Stanford PhD",
+      "author_url": "https://www.linkedin.com/in/davidyzeng?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAAAmDqKoBlh9VP-SNSut0WkSVMQb9-rVFaAI",
+      "owner_type": "company",
+      "owner_name": "Ardent",
+      "likes": 47,
+      "comments": 3,
+      "reposts": 5,
+      "is_repost": false,
+      "source": "harvestapi.linkedin.company.posts",
+      "signal_kinds": []
+    }
+  ],
+  "founder_posts": [
+    {
+      "urn": "urn:li:share:7491548955521019904",
+      "url": "https://www.linkedin.com/posts/vikram-chennai_ardent-yc-x26-has-been-a-gamechanger-for-activity-7491548956045357056-P-Gw?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAGylPDkBvoFTGORbcFvx6k3sxCywlDV51hw",
+      "text": "The best feeling in the world is when your customers talk about your product completely unprompted :)",
+      "posted_at": "2026-08-07T17:40:57.370000+00:00",
+      "author_name": "Vikram C.",
+      "author_headline": "Founder @ Ardent (YC X26) | Building database sandboxes for agents",
+      "author_url": "https://www.linkedin.com/in/vikram-chennai?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAACnxINUBXhjfGELdox4ARORX0iboq_LMo9w",
+      "owner_type": "founder",
+      "owner_name": "Vikram Chennai",
+      "likes": 22,
+      "comments": 4,
+      "reposts": 0,
+      "is_repost": true,
+      "source": "treg.linkedin.user.posts",
+      "signal_kinds": []
+    },
+    {
+      "urn": "urn:li:share:7483771957692231680",
+      "url": "https://www.linkedin.com/posts/vikram-chennai_introducing-sazabi-the-most-expensive-piece-activity-7483771958636158976-xT7u?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAGylPDkBvoFTGORbcFvx6k3sxCywlDV51hw",
+      "text": "Introducing Sazabi, the most expensive piece of software we use\n\nBe like me. Use Sazabi",
+      "posted_at": "2026-07-17T06:37:56.698000+00:00",
+      "author_name": "Vikram C.",
+      "author_headline": "Founder @ Ardent (YC X26) | Building database sandboxes for agents",
+      "author_url": "https://www.linkedin.com/in/vikram-chennai?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAACnxINUBXhjfGELdox4ARORX0iboq_LMo9w",
+      "owner_type": "founder",
+      "owner_name": "Vikram Chennai",
+      "likes": 25,
+      "comments": 4,
+      "reposts": 0,
+      "is_repost": false,
+      "source": "treg.linkedin.user.posts",
+      "signal_kinds": [
+        "launch"
+      ]
+    },
+    {
+      "urn": "urn:li:share:7482224109033058304",
+      "url": "https://www.linkedin.com/posts/vikram-chennai_ardent-yc-x26-is-now-officially-building-activity-7483418902941589504-Nc9T?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAGylPDkBvoFTGORbcFvx6k3sxCywlDV51hw",
+      "text": "Ardent (YC X26) is now officially building its own DB sandboxes\n\nWe will have full control to make the best Postgres sandboxes in the world by a mile\n\nCompatible with any Postgres DB regardless of provider, it will enable you to clone your entire DB even at TB scale in <6s for your agents to work on\n\nA full DB for every task with zero tradeoffs\n\nThank you to everyone who helped us think through our build, especially Benjamin Swerdlow, Diptanu Gon Choudhury and BinBin H.\n\nThis is gonna be awesome",
+      "posted_at": "2026-07-16T07:15:01.661000+00:00",
+      "author_name": "Vikram C.",
+      "author_headline": "Founder @ Ardent (YC X26) | Building database sandboxes for agents",
+      "author_url": "https://www.linkedin.com/in/vikram-chennai?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAACnxINUBXhjfGELdox4ARORX0iboq_LMo9w",
+      "owner_type": "founder",
+      "owner_name": "Vikram Chennai",
+      "likes": 41,
+      "comments": 2,
+      "reposts": 0,
+      "is_repost": false,
+      "source": "treg.linkedin.user.posts",
+      "signal_kinds": []
+    }
+  ],
+  "post_comments": [],
+  "founder_comments": [],
+  "signals": [
+    {
+      "kind": "launch",
+      "trigger_type": "product_launch",
+      "headline": "Vikram C. posted about a launch: Introducing Sazabi, the most expensive piece of software we use Be li…",
+      "evidence": "Introducing Sazabi, the most expensive piece of software we use Be like me. Use Sazabi",
+      "source_url": "https://www.linkedin.com/posts/vikram-chennai_introducing-sazabi-the-most-expensive-piece-activity-7483771958636158976-xT7u?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAGylPDkBvoFTGORbcFvx6k3sxCywlDV51hw",
+      "posted_at": "2026-07-17T06:37:56.698000+00:00",
+      "actor": "Vikram C.",
+      "confidence": 0.65,
+      "recency_days": 85
+    }
+  ],
+  "engaged_people": [],
+  "topics": [
+    "coding",
+    "agents",
+    "ardent",
+    "testing",
+    "product",
+    "database",
+    "throws",
+    "diffs"
+  ],
+  "last_company_post_at": "2026-08-07T18:24:00.858000+00:00",
+  "urgency_score": 1,
+  "summary": "Ardent: 1 LinkedIn signal(s): launch · Vikram Chennai active 63d ago",
+  "cost_usd": 0.014,
+  "calls_made": 6,
+  "budget_exhausted": false,
+  "sources_used": [
+    "harvestapi.linkedin.company.posts",
+    "harvestapi.linkedin.user.comments",
+    "treg.linkedin.post.comments",
+    "treg.linkedin.user.posts"
+  ],
+  "errors": [],
+  "cached": true,
+  "generated_at": "2026-10-10T10:23:19.236615Z"
+}

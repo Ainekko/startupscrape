@@ -1,0 +1,34 @@
+{
+  "lead_id": "run_20261006_123820_31475",
+  "company_name": "Ardent",
+  "signals_found": 1,
+  "evaluations": [
+    {
+      "is_qualified": true,
+      "urgency_score": 7,
+      "relevance_score": 8,
+      "why_now_rationale": "Recent product launch requires immediate pipeline to convert trials and initial pilots into enterprise contracts.",
+      "target_decision_maker": "Founder / CEO",
+      "suggested_angle": "product_launch_pipeline"
+    }
+  ],
+  "briefs_generated": 1,
+  "briefs": [
+    {
+      "company_name": "Ardent",
+      "founder_name": "Vikram Chennai",
+      "founder_email": "vikram@tryardent.com",
+      "founder_title": "Founder/CEO",
+      "founder_linkedin": "https://www.linkedin.com/in/vikram-chennai/",
+      "trigger_type": "product_launch",
+      "urgency_score": 7,
+      "angle": "product_launch_pipeline",
+      "why_now_hook": "Recent product launch requires immediate pipeline to convert trials and initial pilots into enterprise contracts.",
+      "email_subject": "outbound pipeline for Ardent",
+      "email_body": "Hi Vikram,\n\nLoved what you and the team shipped with Vikram C. posted about a launch: Introducing Sazabi, the most expensive piece of software we use Be li….\n\nNow that the product is live, the main challenge is spinning up predictable outbound pipeline without burning developer time on internal sales plumbing.\n\nFlowjoy engineers custom outbound systems in 2–4 weeks with 100% code ownership. Worth a 10-minute chat to review the architecture?",
+      "linkedin_note": "Hi Vikram, saw the Vikram C. posted about a launch: Introducing Sazabi, the most expensive piece of software we use Be li… launch. We engineer custom outbound engines for early B2B teams to accelerate trial acquisition. Would love to connect.",
+      "slack_preview": "🎯 *Why-Now Alert: Ardent* (Urgency: 7/10)\n• *Trigger*: Vikram C. posted about a launch: Introducing Sazabi, the most expensive piece of software we use Be li…\n• *Why Now*: Recent product launch requires immediate pipeline to convert trials and initial pilots into enterprise contracts.\n• *Contact*: Vikram Chennai (Founder/CEO) <vikram@tryardent.com>\n• *Angle*: `product_launch_pipeline` | Brief drafted & ready for review.",
+      "status": "draft"
+    }
+  ]
+}

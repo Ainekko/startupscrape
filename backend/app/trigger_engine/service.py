@@ -19,9 +19,11 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.trigger_engine.detectors.base import BaseDetector, DetectedSignal
 from app.trigger_engine.detectors.funding import FundingDetector
 from app.trigger_engine.detectors.hiring import GTMHiringDetector
+from app.trigger_engine.detectors.linkedin_activity import LinkedInActivityDetector
 from app.trigger_engine.detectors.product import ProductLaunchDetector
 from app.trigger_engine.detectors.social import SocialDiscussionDetector
 from app.trigger_engine.detectors.tech import TechStackDetector
+from app.trigger_engine.linkedin_intel import snapshot_from_report
 from app.trigger_engine.models import (
     BriefStatus,
     OutreachBrief,
@@ -49,6 +51,7 @@ class TriggerEngineService:
             "product_launch": ProductLaunchDetector(),
             "social_discussion": SocialDiscussionDetector(),
             "tech_stack": TechStackDetector(),
+            "linkedin_activity": LinkedInActivityDetector(),
         }
 
     async def scan_account(
@@ -77,7 +80,13 @@ class TriggerEngineService:
 
         for detector in active_detectors:
             try:
-                signals = await detector.detect(account, self.treg)
+                if isinstance(detector, LinkedInActivityDetector):
+                    signals, intel_report = await detector.detect_with_report(account, self.treg)
+                    if intel_report is not None and session:
+                        intel_report.lead_id = lead_id
+                        session.add(snapshot_from_report(intel_report))
+                else:
+                    signals = await detector.detect(account, self.treg)
                 for sig in signals:
                     found_signals.append(sig)
 

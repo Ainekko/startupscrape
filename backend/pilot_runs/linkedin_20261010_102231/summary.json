@@ -1,0 +1,106 @@
+{
+  "total_cost_usd": 0.0375,
+  "accounts": [
+    {
+      "lead_id": "run_20261006_123820_37236",
+      "company_name": "Spine",
+      "company_linkedin_url": "https://www.linkedin.com/company/joinspine",
+      "founders": [
+        "Onur Kardesler",
+        "Ece Cokar"
+      ],
+      "company_posts": 6,
+      "founder_posts": 3,
+      "post_comments": 18,
+      "founder_comments": 54,
+      "signals": [
+        "launch: Y Combinator posted about a launch: Spine runs benefits, people ops, and compliance for startups for free…",
+        "hiring: Spine posted about hiring: We’re hiring a Growth & Community Lead to join Spine full-time in San…",
+        "funding: Spine posted about funding: We’re hiring a Growth & Community Lead to join Spine full-time in San…",
+        "gtm_pain: Spine posted about GTM / outbound: We’re hiring a Growth & Community Lead to join Spine full-time in San…",
+        "hiring: Spine posted about hiring: We’re hiring a Growth & Community Lead to join Spine full-time in San…",
+        "funding: Spine posted about funding: We’re hiring a Growth & Community Lead to join Spine full-time in San…",
+        "gtm_pain: Spine posted about GTM / outbound: We’re hiring a Growth & Community Lead to join Spine full-time in San…",
+        "comment_intent: 1 commenter(s) described a pain on Spine's LinkedIn posts"
+      ],
+      "engaged_people": [
+        "Bilgehan Avser (founder, 1x)",
+        "Fabian Zbinden (founder, 1x)",
+        "Deniz Soylular (founder, 1x)",
+        "Abdul Ali T P (founder, 1x)",
+        "Osman Köycü (founder, 1x)",
+        "Jabulani Aduwo (founder, 1x)",
+        "Sridipto Ghosh (founder, 1x)",
+        "Diana Khramina (founder, 1x)"
+      ],
+      "topics": [
+        "spine",
+        "startups",
+        "health",
+        "benefits",
+        "compliance",
+        "insurance",
+        "companies",
+        "building"
+      ],
+      "urgency_score": 10,
+      "summary": "Spine: 8 LinkedIn signal(s): launch, hiring, funding, gtm pain · Onur Kardesler active 0d ago · Ece Cokar active 0d ago",
+      "cost_usd": 0.0235,
+      "calls_made": 8,
+      "errors": [],
+      "scan_signals_found": 4,
+      "scan_briefs_generated": 4,
+      "treg_calls": [
+        "treg.linkedin.user.posts -> 200 $0.0015 (2.83s)",
+        "harvestapi.linkedin.company.posts -> 200 $0.0040 (3.58s)",
+        "treg.linkedin.user.posts -> 200 $0.0055 (6.05s)",
+        "treg.linkedin.post.comments -> 200 $0.0015 (1.15s)",
+        "treg.linkedin.post.comments -> 200 $0.0015 (1.87s)",
+        "harvestapi.linkedin.user.comments -> 200 $0.0040 (1.67s)",
+        "treg.linkedin.post.comments -> 200 $0.0015 (2.37s)",
+        "harvestapi.linkedin.user.comments -> 200 $0.0040 (5.19s)"
+      ]
+    },
+    {
+      "lead_id": "run_20261006_123820_31475",
+      "company_name": "Ardent",
+      "company_linkedin_url": "https://www.linkedin.com/company/ardent-db",
+      "founders": [
+        "Vikram Chennai"
+      ],
+      "company_posts": 1,
+      "founder_posts": 3,
+      "post_comments": 0,
+      "founder_comments": 0,
+      "signals": [
+        "launch: Vikram C. posted about a launch: Introducing Sazabi, the most expensive piece of software we use Be li…"
+      ],
+      "engaged_people": [],
+      "topics": [
+        "coding",
+        "agents",
+        "ardent",
+        "testing",
+        "product",
+        "database",
+        "throws",
+        "diffs"
+      ],
+      "urgency_score": 1,
+      "summary": "Ardent: 1 LinkedIn signal(s): launch · Vikram Chennai active 63d ago",
+      "cost_usd": 0.014,
+      "calls_made": 6,
+      "errors": [],
+      "scan_signals_found": 1,
+      "scan_briefs_generated": 1,
+      "treg_calls": [
+        "treg.linkedin.user.posts -> 200 $0.0015 (2.61s)",
+        "harvestapi.linkedin.company.posts -> 200 $0.0040 (2.97s)",
+        "treg.linkedin.post.comments -> 200 $0.0015 (2.0s)",
+        "treg.linkedin.post.comments -> 200 $0.0015 (2.54s)",
+        "harvestapi.linkedin.user.comments -> 200 $0.0040 (3.11s)",
+        "treg.linkedin.post.comments -> 200 $0.0015 (3.28s)"
+      ]
+    }
+  ]
+}

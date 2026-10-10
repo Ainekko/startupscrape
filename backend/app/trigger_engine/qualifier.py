@@ -164,6 +164,15 @@ Source: {signal.source}
                 "target_decision_maker": "Founder",
                 "suggested_angle": "stack_friction",
             }
+        elif ttype == "founder_signal":
+            return {
+                "is_qualified": True,
+                "urgency_score": 7,
+                "relevance_score": 7,
+                "why_now_rationale": f"{company_name}'s founder is publicly active on LinkedIn around growth and GTM topics right now, giving a warm, timely conversation hook.",
+                "target_decision_maker": "Founder / CEO",
+                "suggested_angle": "founder_led_bottleneck",
+            }
         else:
             return {
                 "is_qualified": True,

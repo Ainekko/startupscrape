@@ -1,0 +1,106 @@
+{
+  "lead_id": "run_20261006_123820_37236",
+  "company_name": "Spine",
+  "signals_found": 4,
+  "evaluations": [
+    {
+      "is_qualified": true,
+      "urgency_score": 8,
+      "relevance_score": 8,
+      "why_now_rationale": "Spine just announced their YC launch and needs to rapidly build out a scalable acquisition pipeline to convert initial launch momentum into signed startup accounts. Partnering with Flowjoy allows their engineering team to remain focused on product development while automated GTM infrastructure is built into their repo.",
+      "target_decision_maker": "Co-founder & CEO",
+      "suggested_angle": "product_launch_pipeline"
+    },
+    {
+      "is_qualified": true,
+      "urgency_score": 8,
+      "relevance_score": 8,
+      "why_now_rationale": "Spine is actively hiring their first Growth Lead ahead of their upcoming YC push, creating a prime window to build their automated outbound infrastructure. Setting up production-grade GTM engineering now ensures the new hire inherits a functioning pipeline on day one.",
+      "target_decision_maker": "CEO / Co-founder",
+      "suggested_angle": "first_sales_hire"
+    },
+    {
+      "is_qualified": true,
+      "urgency_score": 8,
+      "relevance_score": 8,
+      "why_now_rationale": "With fresh funding and an upcoming YC batch, Spine is hiring its first growth lead and needs outbound pipeline infrastructure ready before they start. Shipping a production-grade revenue engine now allows them to hit aggressive growth targets without diverting core dev bandwidth.",
+      "target_decision_maker": "CEO & Co-founder",
+      "suggested_angle": "post_funding_ramp"
+    },
+    {
+      "is_qualified": true,
+      "urgency_score": 8,
+      "relevance_score": 8,
+      "why_now_rationale": "Spine is hiring their first Growth Lead as they prepare for their next YC batch growth targets. Implementing automated GTM infrastructure now ensures the new hire has a production-ready outbound pipeline from day one.",
+      "target_decision_maker": "Co-founder",
+      "suggested_angle": "first_sales_hire"
+    }
+  ],
+  "briefs_generated": 4,
+  "briefs": [
+    {
+      "company_name": "Spine",
+      "founder_name": "Onur Kardesler",
+      "founder_email": "onur.kardesler@joinspine.ai",
+      "founder_title": "Founder/CEO",
+      "founder_linkedin": "https://www.linkedin.com/in/onurkardesler/",
+      "trigger_type": "product_launch",
+      "urgency_score": 8,
+      "angle": "product_launch_pipeline",
+      "why_now_hook": "Spine just announced their YC launch and needs to rapidly build out a scalable acquisition pipeline to convert initial launch momentum into signed startup accounts. Partnering with Flowjoy allows their engineering team to remain focused on product development while automated GTM infrastructure is built into their repo.",
+      "email_subject": "outbound pipeline for Spine",
+      "email_body": "Hi Onur,\n\nLoved what you and the team shipped with Y Combinator posted about a launch: Spine runs benefits, people ops, and compliance for startups for free….\n\nNow that the product is live, the main challenge is spinning up predictable outbound pipeline without burning developer time on internal sales plumbing.\n\nFlowjoy engineers custom outbound systems in 2–4 weeks with 100% code ownership. Worth a 10-minute chat to review the architecture?",
+      "linkedin_note": "Hi Onur, saw the Y Combinator posted about a launch: Spine runs benefits, people ops, and compliance for startups for free… launch. We engineer custom outbound engines for early B2B teams to accelerate trial acquisition. Would love to connect.",
+      "slack_preview": "🎯 *Why-Now Alert: Spine* (Urgency: 8/10)\n• *Trigger*: Y Combinator posted about a launch: Spine runs benefits, people ops, and compliance for startups for free…\n• *Why Now*: Spine just announced their YC launch and needs to rapidly build out a scalable acquisition pipeline to convert initial launch momentum into signed startup accounts. Partnering with Flowjoy allows their engineering team to remain focused on product development while automated GTM infrastructure is built into their repo.\n• *Contact*: Onur Kardesler (Founder/CEO) <onur.kardesler@joinspine.ai>\n• *Angle*: `product_launch_pipeline` | Brief drafted & ready for review.",
+      "status": "draft"
+    },
+    {
+      "company_name": "Spine",
+      "founder_name": "Onur Kardesler",
+      "founder_email": "onur.kardesler@joinspine.ai",
+      "founder_title": "Founder/CEO",
+      "founder_linkedin": "https://www.linkedin.com/in/onurkardesler/",
+      "trigger_type": "gtm_hiring",
+      "urgency_score": 8,
+      "angle": "first_sales_hire",
+      "why_now_hook": "Spine is actively hiring their first Growth Lead ahead of their upcoming YC push, creating a prime window to build their automated outbound infrastructure. Setting up production-grade GTM engineering now ensures the new hire inherits a functioning pipeline on day one.",
+      "email_subject": "outbound engine for Spine",
+      "email_body": "Hi Onur,\n\nSaw Spine is actively looking to hire for sales. When technical founders bring on their first sales reps, they usually spend the first 3 months paying them to manually stitch Apollo and Clay spreadsheets instead of having discovery conversations.\n\nAt Flowjoy, we engineer automated revenue pipelines directly into your GitHub repo in a 2-week sprint so your outbound runs on autopilot before they even start.\n\nWorth a quick 10-minute architecture review?",
+      "linkedin_note": "Hi Onur, saw Spine is scaling sales. We engineer automated outbound engines directly into your GitHub in 2-week sprints so reps spend 100% of their day selling. Worth connecting?",
+      "slack_preview": "🎯 *Why-Now Alert: Spine* (Urgency: 8/10)\n• *Trigger*: Spine posted about hiring: We’re hiring a Growth & Community Lead to join Spine full-time in San…\n• *Why Now*: Spine is actively hiring their first Growth Lead ahead of their upcoming YC push, creating a prime window to build their automated outbound infrastructure. Setting up production-grade GTM engineering now ensures the new hire inherits a functioning pipeline on day one.\n• *Contact*: Onur Kardesler (Founder/CEO) <onur.kardesler@joinspine.ai>\n• *Angle*: `first_sales_hire` | Brief drafted & ready for review.",
+      "status": "draft"
+    },
+    {
+      "company_name": "Spine",
+      "founder_name": "Onur Kardesler",
+      "founder_email": "onur.kardesler@joinspine.ai",
+      "founder_title": "Founder/CEO",
+      "founder_linkedin": "https://www.linkedin.com/in/onurkardesler/",
+      "trigger_type": "funding",
+      "urgency_score": 8,
+      "angle": "post_funding_ramp",
+      "why_now_hook": "With fresh funding and an upcoming YC batch, Spine is hiring its first growth lead and needs outbound pipeline infrastructure ready before they start. Shipping a production-grade revenue engine now allows them to hit aggressive growth targets without diverting core dev bandwidth.",
+      "email_subject": "gtm engineering post-raise // Spine",
+      "email_body": "Hi Onur,\n\nSaw the news on Spine — congrats on the momentum.\n\nMost Seed/Series A technical founders we speak with have their core engineering team 100% focused on shipping product, leaving outbound pipelines and lead routing under-engineered.\n\nFlowjoy acts as your dedicated GTM Engineering team — shipping production revenue pipelines directly to your repo in 2–4 weeks (100% code ownership, zero platform lock-in).\n\nMind if I share a 2-minute Loom teardown on how other YC founders set this up?",
+      "linkedin_note": "Hi Onur, congrats on the Spine momentum. We build production revenue pipelines for Seed B2B teams so dev teams stay focused on product. Would love to connect.",
+      "slack_preview": "🎯 *Why-Now Alert: Spine* (Urgency: 8/10)\n• *Trigger*: Spine posted about funding: We’re hiring a Growth & Community Lead to join Spine full-time in San…\n• *Why Now*: With fresh funding and an upcoming YC batch, Spine is hiring its first growth lead and needs outbound pipeline infrastructure ready before they start. Shipping a production-grade revenue engine now allows them to hit aggressive growth targets without diverting core dev bandwidth.\n• *Contact*: Onur Kardesler (Founder/CEO) <onur.kardesler@joinspine.ai>\n• *Angle*: `post_funding_ramp` | Brief drafted & ready for review.",
+      "status": "draft"
+    },
+    {
+      "company_name": "Spine",
+      "founder_name": "Onur Kardesler",
+      "founder_email": "onur.kardesler@joinspine.ai",
+      "founder_title": "Founder/CEO",
+      "founder_linkedin": "https://www.linkedin.com/in/onurkardesler/",
+      "trigger_type": "social_discussion",
+      "urgency_score": 8,
+      "angle": "first_sales_hire",
+      "why_now_hook": "Spine is hiring their first Growth Lead as they prepare for their next YC batch growth targets. Implementing automated GTM infrastructure now ensures the new hire has a production-ready outbound pipeline from day one.",
+      "email_subject": "outbound engine for Spine",
+      "email_body": "Hi Onur,\n\nSaw Spine is actively looking to hire for sales. When technical founders bring on their first sales reps, they usually spend the first 3 months paying them to manually stitch Apollo and Clay spreadsheets instead of having discovery conversations.\n\nAt Flowjoy, we engineer automated revenue pipelines directly into your GitHub repo in a 2-week sprint so your outbound runs on autopilot before they even start.\n\nWorth a quick 10-minute architecture review?",
+      "linkedin_note": "Hi Onur, saw Spine is scaling sales. We engineer automated outbound engines directly into your GitHub in 2-week sprints so reps spend 100% of their day selling. Worth connecting?",
+      "slack_preview": "🎯 *Why-Now Alert: Spine* (Urgency: 8/10)\n• *Trigger*: Spine posted about GTM / outbound: We’re hiring a Growth & Community Lead to join Spine full-time in San…\n• *Why Now*: Spine is hiring their first Growth Lead as they prepare for their next YC batch growth targets. Implementing automated GTM infrastructure now ensures the new hire has a production-ready outbound pipeline from day one.\n• *Contact*: Onur Kardesler (Founder/CEO) <onur.kardesler@joinspine.ai>\n• *Angle*: `first_sales_hire` | Brief drafted & ready for review.",
+      "status": "draft"
+    }
+  ]
+}

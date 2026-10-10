@@ -25,6 +25,11 @@ from app.db import get_session, get_session_context
 from app.models import Lead as VerveLead, User
 from app.trigger_engine.models import (
     BriefStatusUpdateRequest,
+    LinkedInIntelBatchItem,
+    LinkedInIntelBatchRequest,
+    LinkedInIntelBatchResponse,
+    LinkedInIntelReport,
+    LinkedInIntelRequest,
     LinkedInSpyRequest,
     LinkedInSpyResponse,
     OutreachBriefResponse,
@@ -32,6 +37,12 @@ from app.trigger_engine.models import (
     TriggerRunResponse,
     TriggerScanRequest,
     TriggerStatsResponse,
+)
+from app.trigger_engine.linkedin_intel import (
+    IntelOptions,
+    LinkedInIntelService,
+    load_latest_snapshot,
+    save_snapshot,
 )
 from app.trigger_engine.linkedin_spy import LinkedInSpyService
 from app.trigger_engine.service import TriggerEngineService
@@ -41,6 +52,58 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/triggers", tags=["triggers"])
 _service = TriggerEngineService()
 _linkedin_spy = LinkedInSpyService()
+_linkedin_intel = LinkedInIntelService()
+
+INTEL_CACHE_TTL_HOURS = 24
+MIN_BATCH_ACCOUNT_BUDGET_USD = 0.005
+
+
+def _safe_json_list(raw: Optional[str]) -> list[Any]:
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, list) else []
+    except Exception:
+        return []
+
+
+def _lead_to_account(l: VerveLead) -> dict[str, Any]:
+    """Map a Verve lead row to the account dict consumed by detectors and the intel service."""
+    return {
+        "id": l.id,
+        "company_name": l.company_name,
+        "website": l.website,
+        "one_liner": l.one_liner,
+        "batch": l.batch,
+        "industry": l.industry,
+        "team_size": l.team_size,
+        "tags": l.tags.split(",") if l.tags else [],
+        "founder_name": l.founder_name,
+        "founder_title": l.founder_title,
+        "founder_linkedin": l.founder_linkedin,
+        "email": l.email,
+        "founders": _safe_json_list(l.founders_json),
+        "yc_url": l.yc_url,
+        "linkedin_url": l.linkedin_url,
+        "company_linkedin_url": l.linkedin_url,
+    }
+
+
+async def _load_lead(session: AsyncSession, lead_id: str) -> Optional[VerveLead]:
+    result = await session.execute(select(VerveLead).where(VerveLead.id == lead_id))
+    return result.scalars().first()
+
+
+def _intel_options(req: LinkedInIntelRequest) -> IntelOptions:
+    return IntelOptions(
+        max_cost_usd=req.max_cost_usd,
+        lookback_days=req.lookback_days,
+        max_posts_for_comments=req.max_posts_for_comments,
+        comments_per_post=req.comments_per_post,
+        max_founders=req.max_founders,
+        include_founder_comments=req.include_founder_comments,
+    )
 
 
 
@@ -71,32 +134,7 @@ async def scan_leads(
     if not verve_leads:
         raise HTTPException(status_code=404, detail="No matching Verve leads found for trigger scanning")
 
-    lead_dicts = []
-    for l in verve_leads:
-        raw_founders = []
-        if l.founders_json:
-            try:
-                raw_founders = json.loads(l.founders_json)
-            except Exception:
-                raw_founders = []
-
-        lead_dicts.append({
-            "id": l.id,
-            "company_name": l.company_name,
-            "website": l.website,
-            "one_liner": l.one_liner,
-            "batch": l.batch,
-            "industry": l.industry,
-            "team_size": l.team_size,
-            "tags": l.tags.split(",") if l.tags else [],
-            "founder_name": l.founder_name,
-            "founder_title": l.founder_title,
-            "founder_linkedin": l.founder_linkedin,
-            "email": l.email,
-            "founders": raw_founders,
-            "yc_url": l.yc_url,
-            "linkedin_url": l.linkedin_url,
-        })
+    lead_dicts = [_lead_to_account(l) for l in verve_leads]
 
     run_record = await _service.scan_leads_batch(
         leads=lead_dicts,
@@ -230,6 +268,186 @@ async def spy_linkedin(req: LinkedInSpyRequest):
         raise HTTPException(status_code=500, detail=f"LinkedIn spy execution error: {exc}")
 
 
+@router.post("/linkedin/intel", response_model=LinkedInIntelReport)
+async def linkedin_intel(
+    req: LinkedInIntelRequest,
+    session: Optional[AsyncSession] = Depends(get_session),
+):
+    """
+    Deep LinkedIn intel for one tracked account: company posts, founder posts,
+    comments on those posts, and comments the founders made elsewhere.
+    All data via treg providers (no LinkedIn login → no ban risk). Cached for 24h.
+    """
+    account: dict[str, Any] = {}
+
+    if req.lead_id:
+        if session is not None:
+            try:
+                lead = await _load_lead(session, req.lead_id)
+            except Exception as exc:
+                logger.warning("Could not load lead %s: %s", req.lead_id, exc)
+                lead = None
+            if lead is not None:
+                account = _lead_to_account(lead)
+            elif not req.company_name:
+                raise HTTPException(status_code=404, detail=f"Lead {req.lead_id} not found")
+        elif not req.company_name:
+            raise HTTPException(status_code=503, detail="Database session not available; pass company_name instead")
+        account["id"] = req.lead_id
+
+    if req.company_name and req.company_name.strip():
+        account["company_name"] = req.company_name.strip()
+    if req.domain:
+        account["website"] = req.domain
+    if req.company_linkedin_url:
+        account["company_linkedin_url"] = req.company_linkedin_url
+    if req.founder_names and not account.get("founder_name"):
+        account["founder_name"] = req.founder_names[0]
+
+    if not account.get("company_name"):
+        raise HTTPException(status_code=400, detail="lead_id or company_name is required")
+
+    # Serve fresh cached snapshot unless forced
+    if session is not None and account.get("id") and not req.force_refresh:
+        try:
+            cached = await load_latest_snapshot(session, str(account["id"]), max_age_hours=INTEL_CACHE_TTL_HOURS)
+            if cached is not None:
+                return cached
+        except Exception as exc:
+            logger.warning("Intel cache lookup failed for %s: %s", account.get("id"), exc)
+
+    try:
+        report = await _linkedin_intel.gather(
+            account,
+            options=_intel_options(req),
+            extra_founder_urls=req.founder_linkedin_urls,
+        )
+    except Exception as exc:
+        logger.error("LinkedIn intel failed for %s: %s", account.get("company_name"), exc)
+        raise HTTPException(status_code=500, detail=f"LinkedIn intel error: {exc}")
+
+    if req.persist and session is not None:
+        try:
+            await save_snapshot(session, report)
+        except Exception as exc:
+            logger.warning("Could not persist intel snapshot for %s: %s", report.lead_id, exc)
+            report.errors.append(f"persist: {exc}")
+
+    return report
+
+
+@router.get("/linkedin/intel/{lead_id}", response_model=LinkedInIntelReport)
+async def get_linkedin_intel(
+    lead_id: str,
+    session: Optional[AsyncSession] = Depends(get_session),
+):
+    """Latest persisted LinkedIn intel snapshot for a lead (any age)."""
+    if session is None:
+        raise HTTPException(status_code=503, detail="Database session not available")
+    try:
+        report = await load_latest_snapshot(session, lead_id)
+    except Exception as exc:
+        logger.warning("Intel snapshot lookup failed for %s: %s", lead_id, exc)
+        report = None
+    if report is None:
+        raise HTTPException(status_code=404, detail=f"No LinkedIn intel for lead {lead_id}")
+    return report
+
+
+@router.post("/linkedin/intel/batch", response_model=LinkedInIntelBatchResponse)
+async def linkedin_intel_batch(
+    req: LinkedInIntelBatchRequest,
+    session: Optional[AsyncSession] = Depends(get_session),
+):
+    """
+    Gather LinkedIn intel for many tracked accounts under a hard total budget.
+    Fresh snapshots (<24h) are reused unless force_refresh is set.
+    """
+    if session is None:
+        raise HTTPException(status_code=503, detail="Database session not available")
+
+    query = select(VerveLead)
+    if req.lead_ids:
+        query = query.where(VerveLead.id.in_(req.lead_ids))
+    else:
+        query = query.order_by(VerveLead.final_score.desc()).limit(req.limit)
+    leads = list((await session.execute(query)).scalars().all())
+
+    items: list[LinkedInIntelBatchItem] = []
+    total_cost = 0.0
+    scanned = 0
+    cached_count = 0
+    budget_exhausted = False
+
+    for lead in leads:
+        account = _lead_to_account(lead)
+
+        if not req.force_refresh:
+            try:
+                cached = await load_latest_snapshot(session, lead.id, max_age_hours=INTEL_CACHE_TTL_HOURS)
+            except Exception:
+                cached = None
+            if cached is not None:
+                cached_count += 1
+                items.append(LinkedInIntelBatchItem(
+                    lead_id=lead.id,
+                    company_name=lead.company_name,
+                    status="cached",
+                    signals_count=len(cached.signals),
+                    urgency_score=cached.urgency_score,
+                    summary=cached.summary,
+                ))
+                continue
+
+        remaining = req.max_total_cost_usd - total_cost
+        if remaining < MIN_BATCH_ACCOUNT_BUDGET_USD:
+            budget_exhausted = True
+            items.append(LinkedInIntelBatchItem(
+                lead_id=lead.id, company_name=lead.company_name, status="skipped_budget",
+            ))
+            continue
+
+        try:
+            report = await _linkedin_intel.gather(
+                account,
+                options=IntelOptions(max_cost_usd=min(req.max_cost_usd_per_account, remaining)),
+            )
+            total_cost += report.cost_usd
+            scanned += 1
+            try:
+                await save_snapshot(session, report)
+            except Exception as exc:
+                logger.warning("Could not persist intel snapshot for %s: %s", lead.id, exc)
+                try:
+                    await session.rollback()
+                except Exception:
+                    pass
+            items.append(LinkedInIntelBatchItem(
+                lead_id=lead.id,
+                company_name=lead.company_name,
+                status="scanned",
+                signals_count=len(report.signals),
+                urgency_score=report.urgency_score,
+                cost_usd=report.cost_usd,
+                summary=report.summary,
+            ))
+        except Exception as exc:
+            logger.error("Batch intel failed for %s: %s", lead.company_name, exc)
+            items.append(LinkedInIntelBatchItem(
+                lead_id=lead.id, company_name=lead.company_name, status="error", error=str(exc)[:300],
+            ))
+
+    return LinkedInIntelBatchResponse(
+        accounts_requested=len(leads),
+        accounts_scanned=scanned,
+        accounts_cached=cached_count,
+        total_cost_usd=round(total_cost, 6),
+        budget_exhausted=budget_exhausted,
+        items=items,
+    )
+
+
+
 @router.get("/leads")
 async def list_upstream_verve_leads(
     limit: int = Query(10, ge=1, le=50),
@@ -277,6 +495,8 @@ async def list_upstream_verve_leads(
                 "key_signals": signals,
                 "source": "verve_db",
                 "outreach_status": getattr(l, "outreach_status", "new"),
+                "company_linkedin_url": l.linkedin_url,
+                "founders": founders if isinstance(founders, list) else [],
             })
 
     if session is not None:
@@ -337,6 +557,8 @@ async def list_upstream_verve_leads(
                         "final_score": gtm.get("score") or l.get("final_score") or 9.5,
                         "key_signals": gtm.get("key_signals", []),
                         "source": "verve_artifact",
+                        "company_linkedin_url": l.get("linkedin_url") or l.get("company_linkedin_url"),
+                        "founders": founders if isinstance(founders, list) else [],
                     })
             except Exception as e:
                 logger.error("Failed to parse Verve artifact %s: %s", files[0], e)

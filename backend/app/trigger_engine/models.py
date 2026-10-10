@@ -269,3 +269,157 @@ class LinkedInSpyResponse(BaseModel):
     detected_at: datetime = PyField(default_factory=lambda: datetime.now(timezone.utc))
 
 
+# =============================================================================
+# LinkedIn Deep Intel (posts, comments, engaged people) — via treg providers only
+# =============================================================================
+
+class LinkedInIntelSnapshot(SQLModel, table=True):
+    __tablename__ = "trigengine_linkedin_intel"
+
+    id: str = Field(primary_key=True)  # e.g. "liintel_xxxxxxxx"
+    lead_id: str = Field(index=True)   # Soft reference to Verve lead id
+    company_name: str = Field(index=True)
+    signals_count: int = Field(default=0)
+    posts_count: int = Field(default=0)
+    comments_count: int = Field(default=0)
+    cost_usd: float = Field(default=0.0)
+    report_json: str  # Full LinkedInIntelReport JSON
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+
+
+class LinkedInPost(BaseModel):
+    urn: Optional[str] = None
+    url: Optional[str] = None
+    text: str = ""
+    posted_at: Optional[str] = None  # ISO 8601 UTC
+    author_name: Optional[str] = None
+    author_headline: Optional[str] = None
+    author_url: Optional[str] = None
+    owner_type: str = "company"  # company | founder
+    owner_name: Optional[str] = None
+    likes: int = 0
+    comments: int = 0
+    reposts: int = 0
+    is_repost: bool = False
+    source: str = ""
+    signal_kinds: list[str] = []
+
+
+class LinkedInComment(BaseModel):
+    text: str
+    author_name: Optional[str] = None
+    author_headline: Optional[str] = None
+    author_url: Optional[str] = None
+    posted_at: Optional[str] = None
+    likes: int = 0
+    replies: int = 0
+    post_url: Optional[str] = None
+    post_urn: Optional[str] = None
+    post_text: Optional[str] = None
+    post_author_name: Optional[str] = None
+    comment_url: Optional[str] = None
+    source: str = ""
+    intent: Optional[str] = None       # buying_intent | pain | question | praise | None
+    author_role: Optional[str] = None  # investor | founder | sales_leader | sales_rep | recruiter | engineer | other
+
+
+class IntelSignal(BaseModel):
+    kind: str  # hiring | funding | launch | gtm_pain | milestone | event | comment_intent | notable_engager | founder_engagement
+    trigger_type: str  # mapped Trigger Engine type (gtm_hiring, funding, product_launch, social_discussion, founder_signal)
+    headline: str
+    evidence: str
+    source_url: Optional[str] = None
+    posted_at: Optional[str] = None
+    actor: Optional[str] = None
+    confidence: float = 0.75
+    recency_days: Optional[int] = None
+
+
+class EngagedPerson(BaseModel):
+    name: str
+    headline: Optional[str] = None
+    url: Optional[str] = None
+    role: str = "other"
+    comment_count: int = 0
+    intents: list[str] = []
+    sample_comment: Optional[str] = None
+
+
+class FounderActivity(BaseModel):
+    name: Optional[str] = None
+    profile_url: Optional[str] = None
+    posts_found: int = 0
+    comments_made_found: int = 0
+    last_active_at: Optional[str] = None
+    top_topics: list[str] = []
+
+
+class LinkedInIntelReport(BaseModel):
+    lead_id: str
+    company_name: str
+    company_linkedin_url: Optional[str] = None
+    founders: list[FounderActivity] = []
+    company_posts: list[LinkedInPost] = []
+    founder_posts: list[LinkedInPost] = []
+    post_comments: list[LinkedInComment] = []
+    founder_comments: list[LinkedInComment] = []
+    signals: list[IntelSignal] = []
+    engaged_people: list[EngagedPerson] = []
+    topics: list[str] = []
+    last_company_post_at: Optional[str] = None
+    urgency_score: int = 0
+    summary: str = ""
+    cost_usd: float = 0.0
+    calls_made: int = 0
+    budget_exhausted: bool = False
+    sources_used: list[str] = []
+    errors: list[str] = []
+    cached: bool = False
+    generated_at: datetime = PyField(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class LinkedInIntelRequest(BaseModel):
+    lead_id: Optional[str] = None
+    company_name: Optional[str] = None
+    domain: Optional[str] = None
+    company_linkedin_url: Optional[str] = None
+    founder_linkedin_urls: Optional[list[str]] = None
+    founder_names: Optional[list[str]] = None
+    max_cost_usd: float = PyField(default=0.06, ge=0.001, le=1.0)
+    lookback_days: int = PyField(default=90, ge=1, le=365)
+    max_posts_for_comments: int = PyField(default=3, ge=0, le=10)
+    comments_per_post: int = PyField(default=25, ge=1, le=100)
+    max_founders: int = PyField(default=2, ge=0, le=5)
+    include_founder_comments: bool = True
+    force_refresh: bool = False
+    persist: bool = True
+
+
+class LinkedInIntelBatchRequest(BaseModel):
+    lead_ids: Optional[list[str]] = None
+    limit: int = PyField(default=10, ge=1, le=50)
+    max_cost_usd_per_account: float = PyField(default=0.06, ge=0.001, le=1.0)
+    max_total_cost_usd: float = PyField(default=1.0, ge=0.01, le=20.0)
+    force_refresh: bool = False
+
+
+class LinkedInIntelBatchItem(BaseModel):
+    lead_id: str
+    company_name: str
+    status: str  # scanned | cached | skipped_budget | error
+    signals_count: int = 0
+    urgency_score: int = 0
+    cost_usd: float = 0.0
+    summary: str = ""
+    error: Optional[str] = None
+
+
+class LinkedInIntelBatchResponse(BaseModel):
+    accounts_requested: int
+    accounts_scanned: int
+    accounts_cached: int
+    total_cost_usd: float
+    budget_exhausted: bool
+    items: list[LinkedInIntelBatchItem] = []
+
+
