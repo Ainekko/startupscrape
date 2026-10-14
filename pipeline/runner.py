@@ -315,15 +315,15 @@ def _tier1_score(leads: list[StartupLead]) -> list[dict]:
         eval_result = judge(state, questions)
 
         score = 0
-        judge_used = eval_result.get("is_b2b", {}).get("judge", "heuristic")
+        judge_used = eval_result.get("is_b2b", {}).get("judge", "laya")
 
         # Competitor & Vertical status
         is_competitor = eval_result.get("is_competitor_or_overlap", {}).get("answer", False)
         is_vertical = eval_result.get("is_vertical_product", {}).get("answer", False)
 
         # B2B: 5 pts
-        b2b_prob = eval_result.get("is_b2b", {}).get("probabilities", {}).get("true", 0.5)
-        if b2b_prob >= 0.6 or is_b2b_tag:
+        b2b_prob = eval_result.get("is_b2b", {}).get("probabilities", {}).get("true", 0.0)
+        if b2b_prob >= 0.6:
             score += SCORE_B2B
 
         # Funding stage (Seed / Series A): 10 pts (Strict 2023-2027 validation)
@@ -452,7 +452,7 @@ def _tier3_score(leads: list[dict]) -> list[dict]:
 
         lead["final_score"] = round(final_score, 1)
         lead["jev_final_probs"] = eval_res.get("fit", {}).get("probabilities", {})
-        lead["jev_final_judge"] = eval_res.get("fit", {}).get("judge", "heuristic")
+        lead["jev_final_judge"] = eval_res.get("fit", {}).get("judge", "laya")
         return lead
 
     result = []
@@ -475,7 +475,7 @@ def _build_result(
     treg_spend: float,
     finished_at: str | None = None,
 ) -> dict:
-    judge_name = leads[0].get("jev_judge", "heuristic") if leads else "heuristic"
+    judge_name = leads[0].get("jev_judge", "laya") if leads else "laya"
     return {
         "run_id": run_id,
         "started_at": started_at,

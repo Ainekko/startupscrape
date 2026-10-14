@@ -293,7 +293,7 @@ def _parse_spend(raw: str | None) -> dict[str, Any]:
         except Exception:
             pass
     treg = float(data.get("treg_usd", data.get("total_usd", 0.0)) or 0.0)
-    return {"treg_usd": treg, "total_usd": treg, "jev_judge": data.get("jev_judge", "heuristic")}
+    return {"treg_usd": treg, "total_usd": treg, "jev_judge": data.get("jev_judge", "laya")}
 
 
 def _sanitize_email(email: str | None) -> str | None:
